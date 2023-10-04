@@ -1,0 +1,5 @@
+/factory
+/*.tab.h
+/*.tab.c
+/parser.log
+/*.ft
