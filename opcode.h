@@ -18,8 +18,11 @@ typedef enum
     OPC_ROT2,
 } OpcodeKind;
 
+typedef uint32_t OpcodeTagType;
+typedef uint32_t OpcodeParamType;
+
 typedef struct Opcode
 {
-    uint32_t tag;
-    uint32_t param;
-};
+    OpcodeTagType tag;
+    OpcodeParamType param;
+} Opcode;
