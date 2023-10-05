@@ -8,7 +8,6 @@
 
 #include "opcode.h"
 #include <stdint.h>
-#include <vector>
 
 enum ConstantKind
 {
@@ -16,23 +15,18 @@ enum ConstantKind
     CONSTKIND_STRING,
 };
 
-using ConstantKindType = uint32_t;
-using ConstantAddress = uint32_t;
+typedef uint32_t ConstantKindType;
+typedef uint32_t ConstantAddress;
 
-class ConstantTable
+typedef struct ConstantTable
 {
-    std::vector<int64_t> consts;
+    int64_t *consts;
+    size_t consts_size;
+    size_t consts_capacity;
+} ConstantTable;
 
-public:
-    ConstantTable();
-    ConstantTable(const ConstantTable &) = default;
-
-    ConstantTable &operator=(const ConstantTable &) = default;
-
-    ConstantAddress add_int(int64_t value);
-    void get_by_address(OpcodeParamType index, ConstantKindType kind, void *target);
-    inline ConstantAddress get_size() const
-    {
-        return static_cast<ConstantAddress>(consts.size());
-    }
-};
+ConstantTable *ct_new();
+void ct_free(ConstantTable *ct);
+ConstantAddress ct_add_int(ConstantTable *ct, int64_t value);
+void ct_get_by_address(ConstantTable *ct, OpcodeParamType index, ConstantKindType kind, void *target);
+ConstantAddress ct_get_size(ConstantTable *ct);
