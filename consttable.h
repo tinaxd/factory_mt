@@ -21,4 +21,6 @@ typedef struct ConstantTable
 
 } ConstantTable;
 
-void consttable_get_by_index(const ConstantTable *ct, OpcodeParamType index, ConstantKind kind, void *target);
+ConstantTable *consttable_new();
+void consttable_free(ConstantTable *ct);
+void consttable_get_by_index(const ConstantTable *ct, OpcodeParamType index, ConstantKindType kind, void *target);
