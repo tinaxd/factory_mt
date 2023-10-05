@@ -6,6 +6,7 @@
 FactoryVM::FactoryVM(uint64_t stack_size)
     : stack(std::vector<FactoryObject *>(stack_size)), ct(new ConstantTable()), pc(0)
 {
+    _stack_frames.push(StackFrame());
 }
 
 void FactoryVM::set_code(std::vector<Opcode> code)
@@ -93,6 +94,28 @@ void FactoryVM::step_code()
         std::exit(exit_code->value->data.int_value);
         break;
     }
+    case OPC_DISCARD:
+    {
+        stack_top--;
+        break;
+    }
+    case OPC_STORE:
+    {
+        FactoryObject *value = stack[--stack_top];
+        uint32_t address = op.param;
+        _stack_frames.top().store(address, value);
+        break;
+    }
+    case OPC_LOAD:
+    {
+        uint32_t address = op.param;
+        FactoryObject *value = _stack_frames.top().load(address);
+        stack[stack_top++] = value;
+        break;
+    }
+    default:
+        std::cout << "unknown opcode " << op.tag << std::endl;
+        break;
     }
 
     pc++;
@@ -105,4 +128,24 @@ FactoryObject *FactoryVM::get_stack_top() const
         return stack[stack_top - 1];
     }
     return nullptr;
+}
+
+void StackFrame::store(uint32_t address, FactoryObject *value)
+{
+    if (address >= memory.size())
+    {
+        memory.resize(address + 1);
+    }
+
+    memory[address] = value;
+}
+
+FactoryObject *StackFrame::load(uint32_t address)
+{
+    if (address >= memory.size())
+    {
+        return nullptr;
+    }
+
+    return memory[address];
 }

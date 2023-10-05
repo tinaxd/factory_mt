@@ -5,7 +5,8 @@
 #include "vm.h"
 #include <iostream>
 
-Expression *top_expr = nullptr;
+// Expression *top_expr = nullptr;
+Statement *top_stmt = nullptr;
 
 int main(void)
 {
@@ -19,11 +20,12 @@ int main(void)
         return 1;
     }
 
-    print_expr(top_expr);
+    // print_expr(top_expr);
+    print_stmt(top_stmt);
     std::cout << std::endl;
 
     FactoryCompiler compiler;
-    compiler.compile_expr(top_expr);
+    compiler.compile_stmt(top_stmt);
     const auto code = compiler.get_code();
     const auto consts = compiler.get_const_table();
     std::cout << "operations: " << code.size() << std::endl;

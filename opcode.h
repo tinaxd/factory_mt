@@ -16,7 +16,10 @@ typedef enum
     OPC_DIV2,
     OPC_MOD2,
     OPC_ROT2,
-    OPC_EXIT, // exit program with exit code
+    OPC_EXIT,    // exit program with exit code
+    OPC_DISCARD, // discard top of stack
+    OPC_STORE,   // store top of stack to memory indexed by parameter
+    OPC_LOAD,    // load from memory indexed by parameter
 } OpcodeKind;
 
 typedef uint32_t OpcodeTagType;

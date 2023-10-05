@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <vector>
 #include <memory>
+#include <stack>
+
+class StackFrame;
 
 class FactoryVM
 {
@@ -24,6 +27,8 @@ class FactoryVM
 
     std::unique_ptr<ConstantTable> ct; // constant table
 
+    std::stack<StackFrame> _stack_frames;
+
 public:
     FactoryVM(uint64_t stack_size);
 
@@ -32,4 +37,13 @@ public:
     void step_code();
 
     FactoryObject *get_stack_top() const;
+};
+
+class StackFrame
+{
+    std::vector<FactoryObject *> memory;
+
+public:
+    void store(uint32_t address, FactoryObject *value);
+    FactoryObject *load(uint32_t address);
 };

@@ -15,12 +15,22 @@
 "-" return MINUS;
 "*" return TIMES;
 "/" return DIVIDE;
+"%" return MODULO;
 "(" return LPAREN;
 ")" return RPAREN;
+"==" return EQ;
+"!=" return NEQ;
+"<" return LT;
+">" return GT;
+"<=" return LE;
+">=" return GE;
+"=" return ASSIGN;
+"{" return LBRACE;
+"}" return RBRACE;
 
     /* literals */
 ([0-9]+) {
-    yylval.numberLiteral = yytext;
+    yylval.numberLiteral = strdup(yytext);
     return INTEGER_LITERAL;
 }
 
@@ -30,7 +40,7 @@
     /* identifiers and keywords
     starts with a letter, followed by any number of letters or digits */
 ([a-zA-Z][a-zA-Z0-9]*) {
-    yylval.strLiteral = yytext;
+    yylval.strLiteral = strdup(yytext);
     return WORD;
 }
 
