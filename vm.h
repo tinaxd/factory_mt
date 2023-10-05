@@ -11,20 +11,25 @@
 #include "opcode.h"
 #include "consttable.h"
 #include <stdint.h>
+#include <vector>
+#include <memory>
 
-typedef struct FactoryVM
+class FactoryVM
 {
-    FactoryObject **stack; // array of pointers to FactoryObject
-    uint64_t stack_size;   // size of stack
-    uint64_t stack_top;    // index of the top of the stack
+    std::vector<FactoryObject *> stack;
+    size_t stack_top = 0;
 
-    Opcode *code;       // array of opcodes
-    uint64_t code_size; // size of code
-    uint64_t pc;        // program counter
+    std::vector<Opcode> code;
+    uint64_t pc; // program counter
 
-    ConstantTable *ct; // constant table
-} FactoryVM;
+    std::unique_ptr<ConstantTable> ct; // constant table
 
-FactoryVM *vm_init_new(uint64_t stack_size);
-void vm_set_code(FactoryVM *vm, Opcode *code, uint64_t code_size);
-void vm_step_code(FactoryVM *vm);
+public:
+    FactoryVM(uint64_t stack_size);
+
+    void set_code(std::vector<Opcode> code);
+    void set_const_table(std::unique_ptr<ConstantTable> ct);
+    void step_code();
+
+    FactoryObject *get_stack_top() const;
+};

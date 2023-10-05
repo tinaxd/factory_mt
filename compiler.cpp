@@ -1,34 +1,21 @@
 #include "compiler.h"
 
-FactoryCompiler *FactoryCompiler_new()
+FactoryCompiler::FactoryCompiler()
+    : const_table(new ConstantTable())
 {
-    FactoryCompiler *c = (FactoryCompiler *)malloc(sizeof(FactoryCompiler));
-    c->code = (Opcode *)malloc(sizeof(Opcode) * 1024);
-    c->code_size = 1024;
-    c->code_i = 0;
-
-    c->const_table = consttable_new();
 }
 
-void FactoryCompiler_free(FactoryCompiler *compiler)
+void FactoryCompiler::add_op(Opcode op)
 {
-    free(compiler->code);
-
-    consttable_free(compiler->const_table);
-    free(compiler->const_table);
+    code.push_back(std::move(op));
 }
 
-static void fc_add_op(FactoryCompiler *c, Opcode op)
+OpcodeParamType FactoryCompiler::register_const(int64_t value)
 {
-    if (c->code_i >= c->code_size)
-    {
-        c->code_size *= 2;
-        c->code = (Opcode *)realloc(c->code, sizeof(Opcode) * c->code_size);
-    }
-    c->code[c->code_i++] = op;
+    return const_table->add_int(value);
 }
 
-void fc_compile_expr(FactoryCompiler *compiler, const Expression *expr)
+void FactoryCompiler::compile_expr(const Expression *expr)
 {
     switch (expr->type)
     {
@@ -55,19 +42,38 @@ void fc_compile_expr(FactoryCompiler *compiler, const Expression *expr)
             binop = OPC_MOD2;
             break;
         }
-        fc_compile_expr(compiler, left);
-        fc_compile_expr(compiler, right);
+        compile_expr(left);
+        compile_expr(right);
         // now we have the two operands on the stack
         Opcode op;
         op.tag = binop;
         op.param = 0;
-        fc_add_op(compiler, op);
+        add_op(op);
         break;
     }
     case EXPR_LITERAL:
     {
-
+        switch (expr->expr.lit->type)
+        {
+        case LIT_INTEGER:
+        {
+            Opcode op;
+            op.tag = OPC_CONST_INT;
+            op.param = register_const(expr->expr.lit->value.int_value);
+            add_op(op);
+        };
+        }
         break;
     }
     }
+}
+
+const std::vector<Opcode> &FactoryCompiler::get_code()
+{
+    return code;
+}
+
+const ConstantTable &FactoryCompiler::get_const_table()
+{
+    return *const_table;
 }

@@ -8,19 +8,31 @@
 
 #include "opcode.h"
 #include <stdint.h>
+#include <vector>
 
 enum ConstantKind
 {
     CONSTKIND_INT,
+    CONSTKIND_STRING,
 };
 
-typedef uint32_t ConstantKindType;
+using ConstantKindType = uint32_t;
+using ConstantAddress = uint32_t;
 
-typedef struct ConstantTable
+class ConstantTable
 {
+    std::vector<int64_t> consts;
 
-} ConstantTable;
+public:
+    ConstantTable();
+    ConstantTable(const ConstantTable &) = default;
 
-ConstantTable *consttable_new();
-void consttable_free(ConstantTable *ct);
-void consttable_get_by_index(const ConstantTable *ct, OpcodeParamType index, ConstantKindType kind, void *target);
+    ConstantTable &operator=(const ConstantTable &) = default;
+
+    ConstantAddress add_int(int64_t value);
+    void get_by_address(OpcodeParamType index, ConstantKindType kind, void *target);
+    inline ConstantAddress get_size() const
+    {
+        return static_cast<ConstantAddress>(consts.size());
+    }
+};

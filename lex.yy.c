@@ -449,7 +449,7 @@ char *yytext;
 #include "ast.h"
 #include "factory.tab.h"
 
-      int yywrap(void){
+      extern "C" int yywrap(void){
           return 1;
 }
 #line 455 "lex.yy.c"

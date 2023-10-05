@@ -3,20 +3,27 @@
     AST to bytecode compiler for Factory language.
 */
 
-#include <stdlib.h>
 #include "ast.h"
 #include "consttable.h"
 #include "opcode.h"
+#include <vector>
+#include <memory>
 
-typedef struct FactoryCompiler
+class FactoryCompiler
 {
-    Opcode *code;
-    size_t code_size;
-    size_t code_i;
+    std::vector<Opcode> code;
 
-    ConstantTable *const_table;
-} FactoryCompiler;
+    std::unique_ptr<ConstantTable> const_table;
 
-FactoryCompiler *FactoryCompiler_new();
-void FactoryCompiler_free(FactoryCompiler *compiler);
-void fc_compile_expr(FactoryCompiler *compiler, const Expression *expr);
+    void add_op(Opcode op);
+
+    OpcodeParamType register_const(int64_t value);
+
+public:
+    FactoryCompiler();
+    ~FactoryCompiler() = default;
+
+    void compile_expr(const Expression *expr);
+    const std::vector<Opcode> &get_code();
+    const ConstantTable &get_const_table();
+};

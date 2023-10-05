@@ -21,7 +21,7 @@
 
 struct FactoryObject;
 struct FactoryValue;
-typedef uint32_t FactoryValueKind;
+typedef uint32_t FactoryValueKindType;
 
 typedef struct FactoryObject
 {

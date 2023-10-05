@@ -1,8 +1,16 @@
+#pragma once
+#include <cstdint>
+
 typedef enum ExpressionType
 {
     EXPR_BINARY,
     EXPR_LITERAL,
 } ExpressionType;
+
+typedef enum LiteralType
+{
+    LIT_INTEGER,
+} LiteralType;
 
 typedef enum BinaryOperator
 {
@@ -16,7 +24,7 @@ typedef enum BinaryOperator
 struct BinaryExpression;
 struct LiteralExpression;
 
-typedef struct Expression
+struct Expression
 {
     int type;
     union
@@ -24,24 +32,24 @@ typedef struct Expression
         struct BinaryExpression *bin;
         struct LiteralExpression *lit;
     } expr;
-} Expression;
+};
 
-typedef struct BinaryExpression
+struct BinaryExpression
 {
     BinaryOperator op;
     Expression *left;
     Expression *right;
-} BinaryExpression;
+};
 
-typedef struct LiteralExpression
+struct LiteralExpression
 {
     int type;
     union
     {
-        int int_value;
-        float float_value;
+        int64_t int_value;
+        double float_value;
     } value;
-} LiteralExpression;
+};
 
 Expression *make_int_literal(int value);
 Expression *make_bin_expr(Expression *left, BinaryOperator op, Expression *right);

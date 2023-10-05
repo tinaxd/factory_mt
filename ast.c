@@ -4,11 +4,11 @@
 
 Expression *make_int_literal(int value)
 {
-    LiteralExpression *lit = malloc(sizeof(LiteralExpression));
-    lit->type = 0;
+    LiteralExpression *lit = (LiteralExpression *)malloc(sizeof(LiteralExpression));
+    lit->type = LIT_INTEGER;
     lit->value.int_value = value;
 
-    Expression *expr = malloc(sizeof(Expression));
+    Expression *expr = (Expression *)malloc(sizeof(Expression));
     expr->type = EXPR_LITERAL;
     expr->expr.lit = lit;
     return expr;
@@ -16,12 +16,12 @@ Expression *make_int_literal(int value)
 
 Expression *make_bin_expr(Expression *left, BinaryOperator op, Expression *right)
 {
-    BinaryExpression *bin = malloc(sizeof(BinaryExpression));
+    BinaryExpression *bin = (BinaryExpression *)malloc(sizeof(BinaryExpression));
     bin->left = left;
     bin->op = op;
     bin->right = right;
 
-    Expression *expr = malloc(sizeof(Expression));
+    Expression *expr = (Expression *)malloc(sizeof(Expression));
     expr->type = EXPR_BINARY;
     expr->expr.bin = bin;
     return expr;
@@ -29,7 +29,7 @@ Expression *make_bin_expr(Expression *left, BinaryOperator op, Expression *right
 
 static void print_binary_expr(BinaryExpression *bin)
 {
-    char *op;
+    const char *op;
     switch (bin->op)
     {
     case BINOP_PLUS:
@@ -60,7 +60,7 @@ static void print_literal_expr(LiteralExpression *lit)
     switch (lit->type)
     {
     case 0:
-        printf("%d", lit->value.int_value);
+        printf("%ld", lit->value.int_value);
         break;
     }
 }

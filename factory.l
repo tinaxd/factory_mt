@@ -3,7 +3,7 @@
 #include "ast.h"
 #include "factory.tab.h"
 
-      int yywrap(void){
+      extern "C" int yywrap(void){
           return 1;
 }
 %}

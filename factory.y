@@ -8,6 +8,8 @@ int yylex();
 int yyerror(const char *s);
 
 extern char *yytext;
+
+extern Expression *top_expr;
 %}
 
 %union {
@@ -36,7 +38,8 @@ extern char *yytext;
 %%
 
 program: expression {
-    print_expr($1);
+    //print_expr($1);
+    top_expr = $1;
 };
 
 expression: add_expression {
@@ -95,16 +98,3 @@ int yyerror(const char *str)
     return 0;
 }
 
-int main(void)
-{
-    extern int yyparse(void);
-    extern FILE *yyin;
-
-    yyin = stdin;
-    if (yyparse()) {
-        fprintf(stderr, "Error\n");
-        return 1;
-    }
-
-    return 0;
-}
