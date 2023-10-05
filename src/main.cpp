@@ -1,16 +1,20 @@
 #include <cstdlib>
 #include <cstdio>
-#include "ast.h"
-#include "compiler.h"
-#include "vm.h"
 #include <iostream>
+extern "C"
+{
+#include "vm.h"
+#include "ast.h"
+}
+#include "compiler.h"
+
+extern "C" int yyparse(void);
 
 // Expression *top_expr = nullptr;
 Statement *top_stmt = nullptr;
 
 int main(void)
 {
-    extern int yyparse(void);
     extern FILE *yyin;
 
     yyin = stdin;
@@ -26,19 +30,19 @@ int main(void)
 
     FactoryCompiler compiler;
     compiler.compile_stmt(top_stmt);
-    const auto code = compiler.get_code();
-    const auto consts = compiler.get_const_table();
+    auto code = compiler.get_code();
+    auto consts = compiler.get_const_table();
     std::cout << "operations: " << code.size() << std::endl;
-    std::cout << "constants: " << consts.get_size() << std::endl;
+    std::cout << "constants: " << ct_get_size(&consts) << std::endl;
 
-    FactoryVM vm(100);
-    vm.set_code(code);
-    vm.set_const_table(std::make_unique<ConstantTable>(consts));
+    FactoryVM *vm = vm_new(1024);
+    vm_set_code(vm, code.data(), code.size());
+    vm_set_const_table(vm, &consts);
 
     for (int i = 0; i < 50; i++)
     {
-        vm.step_code();
-        auto *stack_top = vm.get_stack_top();
+        vm_step_code(vm);
+        auto *stack_top = vm_get_stack_top(vm);
         if (stack_top == nullptr)
             continue;
         std::cout << "stack top: " << stack_top->value->data.int_value << std::endl;

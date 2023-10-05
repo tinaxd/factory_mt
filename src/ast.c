@@ -1,7 +1,7 @@
 #include "ast.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <cstring>
+#include <string.h>
 
 Expression *make_int_literal(int value)
 {

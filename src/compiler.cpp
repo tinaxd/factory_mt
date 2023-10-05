@@ -14,7 +14,7 @@ void FactoryCompiler::add_op(Opcode op)
 
 OpcodeParamType FactoryCompiler::register_const(int64_t value)
 {
-    return const_table->add_int(value);
+    return ct_add_int(const_table.get(), value);
 }
 
 void FactoryCompiler::compile_expr(const Expression *expr)

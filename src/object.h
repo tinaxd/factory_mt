@@ -29,10 +29,10 @@ typedef struct FactoryObject
     struct FactoryValue *value;
 } FactoryObject;
 
-enum FactoryValueKind
+typedef enum FactoryValueKind
 {
     FVAL_INT,
-};
+} FactoryValueKind;
 
 typedef struct FactoryValue
 {
