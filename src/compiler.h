@@ -3,9 +3,12 @@
     AST to bytecode compiler for Factory language.
 */
 
+extern "C"
+{
 #include "ast.h"
 #include "consttable.h"
 #include "opcode.h"
+}
 #include <vector>
 #include <memory>
 #include <string>

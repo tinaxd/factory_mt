@@ -1,6 +1,7 @@
 #include "consttable.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 ConstantTable *ct_new()
 {
@@ -16,7 +17,7 @@ void ct_free(ConstantTable *ct)
     free(ct->consts);
 }
 
-static ct_realloc_if_necessary(ConstantTable *ct)
+static void ct_realloc_if_necessary(ConstantTable *ct)
 {
     if (ct->consts_size == ct->consts_capacity)
     {
@@ -37,7 +38,7 @@ void ct_get_by_address(ConstantTable *ct, OpcodeParamType index, ConstantKindTyp
 {
     if (kind != CONSTKIND_INT)
     {
-        printf(stderr, "ConstantTable::get_by_address: unsupported constant kind\n");
+        fprintf(stderr, "ConstantTable::get_by_address: unsupported constant kind\n");
         abort();
     }
 
@@ -45,7 +46,7 @@ void ct_get_by_address(ConstantTable *ct, OpcodeParamType index, ConstantKindTyp
     *(int64_t *)target = value;
 }
 
-ConstantAddress ct_get_size(ConstantTable *ct)
+ConstantAddress ct_get_size(const ConstantTable *ct)
 {
     return ct->consts_size;
 }

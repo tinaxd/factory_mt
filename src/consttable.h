@@ -8,6 +8,7 @@
 
 #include "opcode.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 enum ConstantKind
 {
@@ -29,4 +30,4 @@ ConstantTable *ct_new();
 void ct_free(ConstantTable *ct);
 ConstantAddress ct_add_int(ConstantTable *ct, int64_t value);
 void ct_get_by_address(ConstantTable *ct, OpcodeParamType index, ConstantKindType kind, void *target);
-ConstantAddress ct_get_size(ConstantTable *ct);
+ConstantAddress ct_get_size(const ConstantTable *ct);

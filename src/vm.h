@@ -26,7 +26,7 @@ typedef struct FactoryVM
 
     ConstantTable *ct; // constant table
 
-    StackFrame *stack_frames;
+    struct StackFrame *stack_frames;
     size_t stack_frames_top;
     size_t stack_frames_capacity;
 } FactoryVM;
