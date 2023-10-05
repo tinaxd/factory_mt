@@ -4,7 +4,7 @@
 #include <iostream>
 
 FactoryVM::FactoryVM(uint64_t stack_size)
-    : stack(std::vector<FactoryObject *>(stack_size)), ct(new ConstantTable())
+    : stack(std::vector<FactoryObject *>(stack_size)), ct(new ConstantTable()), pc(0)
 {
 }
 
@@ -20,6 +20,8 @@ void FactoryVM::set_const_table(std::unique_ptr<ConstantTable> ct)
 
 void FactoryVM::step_code()
 {
+    // std::cout << "pc: " << pc << std::endl;
+    // std::cout << "code.size(): " << this->code.size() << std::endl;
     if (pc >= code.size())
         return;
     Opcode op = code[pc];
@@ -82,6 +84,13 @@ void FactoryVM::step_code()
         int64_t left_value = left->value->data.int_value;
         int64_t right_value = right->value->data.int_value;
         stack[stack_top++] = fo_int_const(left_value % right_value);
+        break;
+    }
+    case OPC_EXIT:
+    {
+        FactoryObject *exit_code = stack[--stack_top];
+        // TODO: check if exit_code is integer
+        std::exit(exit_code->value->data.int_value);
         break;
     }
     }

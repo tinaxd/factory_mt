@@ -16,6 +16,7 @@ typedef enum
     OPC_DIV2,
     OPC_MOD2,
     OPC_ROT2,
+    OPC_EXIT, // exit program with exit code
 } OpcodeKind;
 
 typedef uint32_t OpcodeTagType;

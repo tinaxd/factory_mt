@@ -33,7 +33,7 @@ int main(void)
     vm.set_code(code);
     vm.set_const_table(std::make_unique<ConstantTable>(consts));
 
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 50; i++)
     {
         vm.step_code();
         auto *stack_top = vm.get_stack_top();
