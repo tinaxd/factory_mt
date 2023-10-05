@@ -1,5 +1,5 @@
 #pragma once
-#include <cstdint>
+#include <stdint.h>
 
 typedef enum ExpressionType
 {
@@ -37,7 +37,7 @@ struct Statement;
 struct AssignStatement;
 struct ConditionalStatement;
 
-struct Statement
+typedef struct Statement
 {
     int type;
     union
@@ -48,22 +48,22 @@ struct Statement
         struct ConditionalStatement *cond;
     } stmt;
     struct Statement *blk_next; // for statements in a block
-};
+} Statement;
 
-struct AssignStatement
+typedef struct AssignStatement
 {
     char *name;
     struct Expression *expr;
-};
+} AssignStatement;
 
-struct ConditionalStatement
+typedef struct ConditionalStatement
 {
     struct Expression *cond;
     struct Statement *then;
     struct Statement *otherwise;
-};
+} ConditionalStatement;
 
-struct Expression
+typedef struct Expression
 {
     int type;
     union
@@ -72,16 +72,16 @@ struct Expression
         struct LiteralExpression *lit;
         struct NameExpression *name;
     } expr;
-};
+} Expression;
 
-struct BinaryExpression
+typedef struct BinaryExpression
 {
     BinaryOperator op;
     Expression *left;
     Expression *right;
-};
+} BinaryExpression;
 
-struct LiteralExpression
+typedef struct LiteralExpression
 {
     int type;
     union
@@ -89,12 +89,12 @@ struct LiteralExpression
         int64_t int_value;
         double float_value;
     } value;
-};
+} LiteralExpression;
 
-struct NameExpression
+typedef struct NameExpression
 {
     char *name;
-};
+} NameExpression;
 
 Expression *make_int_literal(int value);
 Expression *make_bin_expr(Expression *left, BinaryOperator op, Expression *right);
