@@ -25,8 +25,14 @@
 "<=" return LE;
 ">=" return GE;
 "=" return ASSIGN;
+
 "{" return LBRACE;
 "}" return RBRACE;
+
+"if" return IF;
+"else" return ELSE;
+"do" return DO;
+"end" return END;
 
     /* literals */
 ([0-9]+) {

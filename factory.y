@@ -34,6 +34,7 @@ extern Statement *top_stmt;
 %token ASSIGN
 %token AND OR NOT
 %token IF ELSE WHILE FOR
+%token END DO
 %token RETURN
 
 %type <expr> expression add_expression product_expression elementary_expression literal_expression
@@ -60,6 +61,14 @@ block_stmt_elements:
 block_statement:
     LBRACE block_stmt_elements RBRACE {
         $$ = make_block_statement($2);
+    };
+
+conditional_statement:
+    IF expression statement {
+
+    }
+    | IF expression statement ELSE statement {
+
     };
 
 statement:

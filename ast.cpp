@@ -78,6 +78,34 @@ void append_block_statement(Statement *block, Statement *stmt)
     block->blk_next = stmt;
 }
 
+Statement *make_cond2(Expression *cond, Statement *then)
+{
+    ConditionalStatement *c = (ConditionalStatement *)malloc(sizeof(ConditionalStatement));
+    c->cond = cond;
+    c->then = then;
+    c->otherwise = NULL;
+
+    Statement *stmt = (Statement *)malloc(sizeof(Statement));
+    stmt->type = STMT_CONDITIONAL;
+    stmt->stmt.cond = c;
+    stmt->blk_next = NULL;
+    return stmt;
+}
+
+Statement *make_cond3(Expression *cond, Statement *then, Statement *otherwise)
+{
+    ConditionalStatement *c = (ConditionalStatement *)malloc(sizeof(ConditionalStatement));
+    c->cond = cond;
+    c->then = then;
+    c->otherwise = otherwise;
+
+    Statement *stmt = (Statement *)malloc(sizeof(Statement));
+    stmt->type = STMT_CONDITIONAL;
+    stmt->stmt.cond = c;
+    stmt->blk_next = NULL;
+    return stmt;
+}
+
 static void print_binary_expr(BinaryExpression *bin)
 {
     const char *op;

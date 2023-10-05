@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include <stdexcept>
 
 FactoryCompiler::FactoryCompiler()
     : const_table(new ConstantTable())
