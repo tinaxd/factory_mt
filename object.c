@@ -1,5 +1,5 @@
 #include "object.h"
-#include <cstdlib>
+#include <stdlib.h>
 
 FactoryObject *fo_int_const(int64_t value)
 {
