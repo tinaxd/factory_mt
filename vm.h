@@ -11,39 +11,42 @@
 #include "opcode.h"
 #include "consttable.h"
 #include <stdint.h>
-#include <vector>
-#include <memory>
-#include <stack>
 
-class StackFrame;
+struct StackFrame;
 
-class FactoryVM
+typedef struct FactoryVM
 {
-    std::vector<FactoryObject *> stack;
-    size_t stack_top = 0;
+    FactoryObject **stack;
+    size_t stack_top;
+    size_t stack_capacity;
 
-    std::vector<Opcode> code;
+    Opcode *code;
+    size_t code_size;
     uint64_t pc; // program counter
 
-    std::unique_ptr<ConstantTable> ct; // constant table
+    ConstantTable *ct; // constant table
 
-    std::stack<StackFrame> _stack_frames;
+    StackFrame *stack_frames;
+    size_t stack_frames_top;
+    size_t stack_frames_capacity;
+} FactoryVM;
 
-public:
-    FactoryVM(uint64_t stack_size);
+FactoryVM *vm_new(uint64_t stack_size);
+void vm_free(FactoryVM *vm);
+void vm_set_code(FactoryVM *vm, Opcode *code, size_t code_size);
+void vm_set_const_table(FactoryVM *vm, ConstantTable *ct);
+void vm_step_code(FactoryVM *vm);
+FactoryObject *vm_get_stack_top(FactoryVM *vm);
 
-    void set_code(std::vector<Opcode> code);
-    void set_const_table(std::unique_ptr<ConstantTable> ct);
-    void step_code();
-
-    FactoryObject *get_stack_top() const;
-};
-
-class StackFrame
+typedef struct StackFrame
 {
-    std::vector<FactoryObject *> memory;
+    FactoryObject **memory;
+    size_t memory_size;
+    size_t memory_capacity;
+} StackFrame;
 
-public:
-    void store(uint32_t address, FactoryObject *value);
-    FactoryObject *load(uint32_t address);
-};
+StackFrame *sf_new();
+void sf_init(StackFrame *sf);
+void sf_free(StackFrame *sf);
+void sf_store(StackFrame *sf, uint32_t address, FactoryObject *value);
+FactoryObject *sf_load(StackFrame *sf, uint32_t address);
