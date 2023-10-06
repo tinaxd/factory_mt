@@ -13,6 +13,7 @@ extern Statement *top_stmt;
 %}
 
 %define parse.error verbose
+%define parse.trace
 
 %union {
     char *numberLiteral;
@@ -59,7 +60,7 @@ block_stmt_elements:
     };
 
 block_statement:
-    LBRACE block_stmt_elements RBRACE {
+    DO block_stmt_elements END {
         $$ = make_block_statement($2);
     };
 

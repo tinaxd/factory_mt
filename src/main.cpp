@@ -9,6 +9,7 @@ extern "C"
 #include "compiler.h"
 
 extern "C" int yyparse(void);
+extern "C" int yydebug;
 
 // Expression *top_expr = nullptr;
 Statement *top_stmt = nullptr;
@@ -16,6 +17,7 @@ Statement *top_stmt = nullptr;
 int main(void)
 {
     extern FILE *yyin;
+    yydebug = 1;
 
     yyin = stdin;
     if (yyparse())

@@ -42,6 +42,7 @@
 
     /* separators */
 "\n" return NEWLINE;
+[[:space:]]+ /* ignore whitespace */;
 
     /* identifiers and keywords
     starts with a letter, followed by any number of letters or digits */
