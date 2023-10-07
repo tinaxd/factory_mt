@@ -51,11 +51,35 @@ pub struct AssignmentStatement {
     expression: Box<Expression>,
 }
 
+impl AssignmentStatement {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn expression(&self) -> &Expression {
+        &self.expression
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ConditionalStatement {
     cond: Box<Expression>,
     then: Box<Statement>,
     otherwise: Option<Box<Statement>>,
+}
+
+impl ConditionalStatement {
+    pub fn cond(&self) -> &Expression {
+        &self.cond
+    }
+
+    pub fn then(&self) -> &Statement {
+        &self.then
+    }
+
+    pub fn otherwise(&self) -> Option<&Statement> {
+        self.otherwise.as_ref().map(|s| &**s)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -81,4 +105,14 @@ pub enum LiteralExpression {
 #[derive(Debug, Clone)]
 pub struct NameExpression {
     name: String,
+}
+
+impl NameExpression {
+    pub fn new(name: String) -> Self {
+        Self { name }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
 }
