@@ -4,3 +4,8 @@
 /parser.log
 /*.ft
 /build
+
+
+# Added by cargo
+
+/target
