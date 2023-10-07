@@ -32,6 +32,7 @@ int main(void)
 
     FactoryCompiler compiler;
     compiler.compile_stmt(top_stmt);
+    compiler.link();
     auto code = compiler.get_code();
     auto consts = compiler.get_const_table();
     std::cout << "operations: " << code.size() << std::endl;

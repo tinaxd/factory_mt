@@ -32,6 +32,7 @@ typedef struct FactoryObject
 typedef enum FactoryValueKind
 {
     FVAL_INT,
+    FVAL_BOOL,
 } FactoryValueKind;
 
 typedef struct FactoryValue
@@ -40,7 +41,9 @@ typedef struct FactoryValue
     union
     {
         int64_t int_value;
+        int bool_value;
     } data;
 } FactoryValue;
 
 FactoryObject *fo_int_const(int64_t value);
+FactoryObject *fo_bool_const(int value);

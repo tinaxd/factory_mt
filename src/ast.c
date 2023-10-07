@@ -126,6 +126,24 @@ static void print_binary_expr(BinaryExpression *bin)
     case BINOP_MODULO:
         op = "%";
         break;
+    case BINOP_EQ:
+        op = "==";
+        break;
+    case BINOP_NEQ:
+        op = "!=";
+        break;
+    case BINOP_LT:
+        op = "<";
+        break;
+    case BINOP_LE:
+        op = "<=";
+        break;
+    case BINOP_GT:
+        op = ">";
+        break;
+    case BINOP_GE:
+        op = ">=";
+        break;
     }
     printf("(");
     print_expr(bin->left);
@@ -181,6 +199,17 @@ void print_stmt(Statement *stmt)
             block = block->blk_next;
         }
         printf("}");
+        break;
+    case STMT_CONDITIONAL:
+        printf("if (");
+        print_expr(stmt->stmt.cond->cond);
+        printf(") ");
+        print_stmt(stmt->stmt.cond->then);
+        if (stmt->stmt.cond->otherwise != NULL)
+        {
+            printf(" else ");
+            print_stmt(stmt->stmt.cond->otherwise);
+        }
         break;
     }
 }

@@ -38,9 +38,9 @@ extern Statement *top_stmt;
 %token END DO
 %token RETURN
 
-%type <expr> expression add_expression product_expression elementary_expression literal_expression
-%type <binop> add_operator product_operator
-%type <stmt> statement assignment expression_stmt block_statement block_stmt_elements
+%type <expr> expression add_expression product_expression elementary_expression literal_expression cmp_expression
+%type <binop> add_operator product_operator cmp_operator
+%type <stmt> statement assignment expression_stmt block_statement block_stmt_elements conditional_statement
 %type <stmt> program
 
 %%
@@ -65,15 +65,16 @@ block_statement:
     };
 
 conditional_statement:
-    IF expression statement {
-
+    IF expression block_statement {
+        $$ = make_cond2($2, $3);
     }
-    | IF expression statement ELSE statement {
-
+    | IF expression block_statement ELSE block_statement {
+        $$ = make_cond3($2, $3, $5);
     };
 
 statement:
     block_statement
+    | conditional_statement
     | assignment
     | expression_stmt;
 
@@ -86,9 +87,17 @@ expression_stmt: expression {
     $$ = make_expr_statement($1);
 };
 
-expression: add_expression {
+expression: cmp_expression {
     $$ = $1;
 };
+
+cmp_expression:
+    cmp_expression cmp_operator add_expression {
+        $$ = make_bin_expr($1, $2, $3);
+    }
+    | add_expression {
+        $$ = $1;
+    };
 
 add_expression:
     add_expression add_operator product_expression {
@@ -105,6 +114,20 @@ product_expression:
     | elementary_expression {
         $$ = $1;
     };
+
+cmp_operator: EQ {
+    $$ = BINOP_EQ;
+} | NEQ {
+    $$ = BINOP_NEQ;
+} | LT {
+    $$ = BINOP_LT;
+} | GT {
+    $$ = BINOP_GT;
+} | LE {
+    $$ = BINOP_LE;
+} | GE {
+    $$ = BINOP_GE;
+};
 
 add_operator: PLUS {
     $$ = BINOP_PLUS;

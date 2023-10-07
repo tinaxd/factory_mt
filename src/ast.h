@@ -20,6 +20,12 @@ typedef enum BinaryOperator
     BINOP_TIMES,
     BINOP_DIVIDE,
     BINOP_MODULO,
+    BINOP_EQ,
+    BINOP_NEQ,
+    BINOP_LT,
+    BINOP_LE,
+    BINOP_GT,
+    BINOP_GE,
 } BinaryOperator;
 
 typedef enum StatementType
@@ -83,7 +89,7 @@ typedef struct BinaryExpression
 
 typedef struct LiteralExpression
 {
-    int type;
+    LiteralType type;
     union
     {
         int64_t int_value;
