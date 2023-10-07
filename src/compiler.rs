@@ -1,12 +1,41 @@
-use crate::opcode::Opcode;
+use crate::{
+    ast::{BinaryExpression, Expression},
+    opcode::Opcode,
+};
 
 #[derive(Debug)]
 pub struct Compiler {
     code: Vec<OpcodeWithMetadata>,
     layouts: Vec<LayoutTracker>,
+
+    current_label_index: u32,
 }
 
-impl Compiler {}
+impl Compiler {
+    fn add_op(&mut self, op: Opcode) {
+        self.code.push(OpcodeWithMetadata::new_op(op));
+    }
+
+    fn add_op_md(&mut self, op: Opcode, md: Metadata) {
+        self.code.push(OpcodeWithMetadata::new(op, md));
+    }
+
+    pub fn new() -> Self {
+        Self {
+            code: Vec::new(),
+            layouts: vec![LayoutTracker::new()],
+            current_label_index: 0,
+        }
+    }
+
+    pub fn compile_expr(&mut self, expr: &Expression) {
+        match expr {
+            Expression::Binary(bin) => {
+                let BinaryExpression { op, left, right } = bin;
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 struct LayoutTracker {
@@ -25,6 +54,10 @@ impl LayoutTracker {
             }
         }
         None
+    }
+
+    pub fn new() -> Self {
+        Self { locals: Vec::new() }
     }
 }
 
