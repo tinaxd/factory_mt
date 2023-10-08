@@ -66,7 +66,7 @@ impl Compiler {
                         }
                         Some(top_label) => {
                             let md = Metadata {
-                                this_label: Some(top_label.to_string()),
+                                this_label: vec![top_label.to_string()],
                                 jmp_to_label: None,
                             };
                             self.add_op_md(op, md);
@@ -77,7 +77,7 @@ impl Compiler {
             },
             Expression::Name(name) => {
                 let var_name = name.get_name();
-                let var_index = self.layouts.first().unwrap().get_local(var_name).unwrap();
+                let var_index = self.layouts.last().unwrap().get_local(var_name).unwrap();
                 let op = Opcode::Load(var_index);
 
                 match top_label {
@@ -86,7 +86,7 @@ impl Compiler {
                     }
                     Some(top_label) => {
                         let md = Metadata {
-                            this_label: Some(top_label.to_string()),
+                            this_label: vec![top_label.to_string()],
                             jmp_to_label: None,
                         };
                         self.add_op_md(op, md);
@@ -126,7 +126,7 @@ impl Compiler {
                 let name = assign.name();
                 let assigned_index = self
                     .layouts
-                    .first_mut()
+                    .last_mut()
                     .unwrap()
                     .register_local(name.to_string());
                 self.compile_expr(assign.expression(), top_label);
@@ -148,7 +148,7 @@ impl Compiler {
                 let true_jmp_op = {
                     let op = Opcode::JmpIfTrue(0);
                     let md = Metadata {
-                        this_label: None,
+                        this_label: vec![],
                         jmp_to_label: Some(true_label.clone()),
                     };
                     (op, md)
@@ -163,7 +163,7 @@ impl Compiler {
                         let false_jmp_op = {
                             let op = Opcode::JmpAlways(0);
                             let md = Metadata {
-                                this_label: None,
+                                this_label: vec![],
                                 jmp_to_label: Some(false_label.clone()),
                             };
                             (op, md)
@@ -181,7 +181,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::JmpAlways(0),
                     Metadata {
-                        this_label: None,
+                        this_label: vec![],
                         jmp_to_label: Some(branch_end_label.clone()),
                     },
                 );
@@ -195,7 +195,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::Nop,
                     Metadata {
-                        this_label: Some(branch_end_label),
+                        this_label: vec![branch_end_label],
                         jmp_to_label: None,
                     },
                 );
@@ -213,7 +213,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::JmpIfFalse(0),
                     Metadata {
-                        this_label: None,
+                        this_label: vec![],
                         jmp_to_label: Some(body_end_label.clone()),
                     },
                 );
@@ -224,7 +224,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::JmpAlways(0),
                     Metadata {
-                        this_label: None,
+                        this_label: vec![],
                         jmp_to_label: Some(cond_label.clone()),
                     },
                 );
@@ -233,7 +233,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::Nop,
                     Metadata {
-                        this_label: Some(body_end_label),
+                        this_label: vec![body_end_label],
                         jmp_to_label: None,
                     },
                 );
@@ -247,7 +247,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::JmpAlways(0),
                     Metadata {
-                        this_label: None,
+                        this_label: top_label.map(|s| vec![s.to_string()]).unwrap_or(vec![]),
                         jmp_to_label: Some(func_def_end_label.clone()),
                     },
                 );
@@ -256,7 +256,7 @@ impl Compiler {
 
                 self.push_layout();
                 {
-                    let lay = self.layouts.first_mut().unwrap();
+                    let lay = self.layouts.last_mut().unwrap();
                     for param in func_params.iter() {
                         lay.register_local(param.to_string());
                     }
@@ -269,13 +269,13 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::CreateFunction(0, func_params.len()),
                     Metadata {
-                        this_label: Some(func_def_end_label),
+                        this_label: vec![func_def_end_label],
                         jmp_to_label: Some(func_body_label.clone()),
                     },
                 );
                 let func_index = self
                     .layouts
-                    .first_mut()
+                    .last_mut()
                     .unwrap()
                     .register_local(func_name.to_string());
                 self.add_op(Opcode::Store(func_index));
@@ -309,16 +309,19 @@ impl Compiler {
         let mut label_map: HashMap<String, u32> = HashMap::new();
         // first pass: collect labels and their addresses
         for (i, op) in self.code.iter().enumerate() {
-            let label = op.get_label();
-            if let Some(label) = label {
+            let labels = op.get_labels();
+            for label in labels.iter() {
                 label_map.insert(label.clone(), i as u32);
             }
         }
+
+        println!("ops before link: {:#?}", self.code);
 
         // second pass: link jumps
         for op in self.code.iter_mut() {
             let jmp_to_label = op.get_jmp_to_label();
             if let Some(jmp_to_label) = jmp_to_label {
+                println!("processing: {}", jmp_to_label.as_str());
                 match op.op {
                     Opcode::JmpIfTrue(_) => {
                         let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
@@ -406,13 +409,13 @@ impl OpcodeWithMetadata {
             op,
             md: Metadata {
                 jmp_to_label: None,
-                this_label: None,
+                this_label: vec![],
             },
         }
     }
 
-    pub fn get_label(&self) -> Option<String> {
-        self.md.this_label.clone()
+    pub fn get_labels(&self) -> &[String] {
+        &self.md.this_label
     }
 
     pub fn get_jmp_to_label(&self) -> Option<String> {
@@ -423,5 +426,5 @@ impl OpcodeWithMetadata {
 #[derive(Debug, Clone)]
 pub struct Metadata {
     pub jmp_to_label: Option<String>,
-    pub this_label: Option<String>,
+    pub this_label: Vec<String>,
 }
