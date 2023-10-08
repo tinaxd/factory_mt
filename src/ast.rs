@@ -165,6 +165,7 @@ impl FuncDefStatement {
 pub enum Expression {
     Binary(BinaryExpression),
     Literal(LiteralExpression),
+    FunCall(FunCallExpression),
     Name(NameExpression),
 }
 
@@ -201,6 +202,29 @@ impl BinaryExpression {
 pub enum LiteralExpression {
     Integer(i64),
     Float(f64),
+}
+
+#[derive(Debug, Clone)]
+pub struct FunCallExpression {
+    callee: Box<Expression>,
+    args: Vec<Expression>,
+}
+
+impl FunCallExpression {
+    pub fn new(callee: Expression, args: Vec<Expression>) -> Self {
+        Self {
+            callee: Box::new(callee),
+            args,
+        }
+    }
+
+    pub fn callee(&self) -> &Expression {
+        &self.callee
+    }
+
+    pub fn args(&self) -> &[Expression] {
+        &self.args
+    }
 }
 
 #[derive(Debug, Clone)]

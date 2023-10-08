@@ -6,7 +6,8 @@ use nom::{branch, combinator as comb, IResult};
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
-    FuncDefStatement, LiteralExpression, NameExpression, Statement, WhileStatement,
+    FunCallExpression, FuncDefStatement, LiteralExpression, NameExpression, Statement,
+    WhileStatement,
 };
 
 type Result<'a, T> = IResult<&'a str, T>;
@@ -46,10 +47,22 @@ pub fn literal_expression(input: &str) -> Result<Expression> {
 pub fn elementary_expression(input: &str) -> Result<Expression> {
     let paren = seq::delimited(tag("("), expression, tag(")"));
     let literal = literal_expression;
+    let call = comb::map(
+        seq::tuple((
+            expression,
+            white1,
+            tag("("),
+            white1,
+            arg_list,
+            white1,
+            tag(")"),
+        )),
+        |(callee, _, _, _, args, _, _)| Expression::FunCall(FunCallExpression::new(callee, args)),
+    );
     let name = comb::map(ident, |s| {
         Expression::Name(NameExpression::new(s.to_string()))
     });
-    branch::alt((paren, literal, name))(input)
+    branch::alt((paren, literal, call, name))(input)
 }
 
 pub fn product_operator(input: &str) -> Result<BinaryOperator> {
@@ -107,6 +120,13 @@ pub fn cmp_expression(input: &str) -> Result<Expression> {
 
 pub fn expression(input: &str) -> Result<Expression> {
     cmp_expression(input)
+}
+
+pub fn arg_list(input: &str) -> Result<Vec<Expression>> {
+    let sep = seq::tuple((white1, tag(","), white1));
+    comb::map(separated_list0(sep, expression), |params| {
+        params.into_iter().collect()
+    })(input)
 }
 
 pub fn expression_stmt(input: &str) -> Result<Statement> {

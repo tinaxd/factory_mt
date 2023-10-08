@@ -93,6 +93,24 @@ impl Compiler {
                     }
                 }
             }
+            Expression::FunCall(func) => {
+                let callee = func.callee();
+                let args = func.args();
+
+                // generate callee
+                self.compile_expr(callee, None);
+
+                // generate args (from left to right)
+                for arg in args.iter() {
+                    self.compile_expr(arg, None);
+                }
+
+                // generate call
+                let op = Opcode::CallNoKw(args.len());
+                self.add_op(op);
+
+                // generate return destination
+            }
         }
     }
 
@@ -223,6 +241,9 @@ impl Compiler {
                 let func_name = def.name();
                 let func_params = def.params();
                 let func_body = def.body();
+
+                let func_body_label = self.generate_func_label(func_name);
+                self.compile_stmt(func_body, Some(&func_body_label.as_str()));
             }
         }
     }
@@ -230,6 +251,11 @@ impl Compiler {
     fn generate_unique_label(&mut self) -> String {
         let label = format!("L{}", self.current_label_index);
         self.current_label_index += 1;
+        label
+    }
+
+    fn generate_func_label(&mut self, func_name: &str) -> String {
+        let label = format!("F{}", func_name);
         label
     }
 
