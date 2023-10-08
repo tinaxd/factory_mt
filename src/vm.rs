@@ -61,6 +61,7 @@ impl VM {
         // fetch opcode
         let op = &self.opcode[self.pc].clone();
         println!("executing {:?}", op);
+        println!("pc is {}", self.pc);
         match op {
             Opcode::ConstInt(const_value) => {
                 self.stack[self.stack_top] = Object::const_int(*const_value);
@@ -308,7 +309,8 @@ impl VM {
                 }
 
                 self.push_stackframe(self.pc + 1);
-                for i in (*n_args - 1)..0 {
+                for i in (0..(*n_args)).rev() {
+                    println!("storing arg {} in stack frame", i);
                     let arg = self.stack[self.stack_top - 1].clone();
                     self.stack_top -= 1;
                     self.current_stack_frame().store(i, arg);

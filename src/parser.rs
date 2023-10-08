@@ -46,9 +46,21 @@ pub fn ident(input: Span) -> Result<Span> {
 }
 
 pub fn literal_expression(input: Span) -> Result<Expression> {
-    comb::map(cp::digit1, |s: Span| {
+    let int_lit = comb::map(cp::digit1, |s: Span| {
         Expression::Literal(LiteralExpression::Integer(s.parse::<i64>().unwrap()))
-    })(input)
+    });
+    let name = comb::map(ident, |s| {
+        Expression::Name(NameExpression::new(s.to_string()))
+    });
+    branch::alt((int_lit, name))(input)
+}
+
+fn callee_expression(input: Span) -> Result<Expression> {
+    let name = comb::map(ident, |s| {
+        Expression::Name(NameExpression::new(s.to_string()))
+    });
+    let paren_expr = seq::delimited(tag("("), expression, tag(")"));
+    branch::alt((name, paren_expr))(input)
 }
 
 pub fn elementary_expression(input: Span) -> Result<Expression> {
@@ -56,20 +68,18 @@ pub fn elementary_expression(input: Span) -> Result<Expression> {
     let literal = literal_expression;
     let call = comb::map(
         seq::tuple((
-            expression,
-            white1,
+            callee_expression,
+            cp::multispace0,
             tag("("),
-            white1,
+            cp::multispace0,
             arg_list,
-            white1,
+            cp::multispace0,
             tag(")"),
         )),
         |(callee, _, _, _, args, _, _)| Expression::FunCall(FunCallExpression::new(callee, args)),
     );
-    let name = comb::map(ident, |s| {
-        Expression::Name(NameExpression::new(s.to_string()))
-    });
-    branch::alt((paren, literal, name))(input)
+
+    branch::alt((paren, call, literal))(input)
 }
 
 pub fn product_operator(input: Span) -> Result<BinaryOperator> {
@@ -251,8 +261,8 @@ pub fn statement(input: Span) -> Result<Statement> {
 }
 
 pub fn program(input: Span) -> Result<Vec<Statement>> {
-    comb::map(stmt_list1, |stmts| {
-        stmts.into_iter().filter_map(|s| Some(s)).collect()
-    })(input)
-    // comb::map(funcdef_stmt, |stmt| vec![stmt])(input)
+    // comb::map(stmt_list1, |stmts| {
+    //     stmts.into_iter().filter_map(|s| Some(s)).collect()
+    // })(input)
+    comb::map(block_stmt, |stmt| vec![stmt])(input)
 }

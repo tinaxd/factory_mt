@@ -267,7 +267,7 @@ impl Compiler {
                 self.add_op_md(
                     Opcode::CreateFunction(0, func_params.len()),
                     Metadata {
-                        this_label: None,
+                        this_label: Some(func_def_end_label),
                         jmp_to_label: Some(func_body_label.clone()),
                     },
                 );
@@ -318,6 +318,10 @@ impl Compiler {
                     Opcode::JmpIfFalse(_) => {
                         let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
                         op.op = Opcode::JmpIfFalse(*jmp_to_addr as usize);
+                    }
+                    Opcode::CreateFunction(_, n) => {
+                        let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
+                        op.op = Opcode::CreateFunction(*jmp_to_addr as usize, n);
                     }
                     _ => {}
                 }
