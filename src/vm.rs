@@ -318,6 +318,7 @@ impl VM {
                     self.stack_top -= 1;
                     self.current_stack_frame().store(i, arg);
                 }
+                self.stack_top -= 1; // consume function object
 
                 self.pc = fun_info.address();
                 return; // avoid incrementing pc

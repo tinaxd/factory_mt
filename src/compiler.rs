@@ -280,6 +280,17 @@ impl Compiler {
                     .register_local(func_name.to_string());
                 self.add_op(Opcode::Store(func_index));
             }
+            Statement::Return(ret) => {
+                match ret.expression() {
+                    None => {
+                        self.add_op(Opcode::ConstNull);
+                    }
+                    Some(e) => {
+                        self.compile_expr(e, top_label);
+                    }
+                }
+                self.add_op(Opcode::Return);
+            }
         }
     }
 

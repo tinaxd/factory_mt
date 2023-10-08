@@ -45,6 +45,7 @@ pub enum Statement {
     Conditional(ConditionalStatement),
     While(WhileStatement),
     FuncDef(FuncDefStatement),
+    Return(ReturnStatement),
 }
 
 #[derive(Debug, Clone)]
@@ -158,6 +159,27 @@ impl FuncDefStatement {
 
     pub fn body(&self) -> &Statement {
         &self.body
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ReturnStatement {
+    expression: Option<Box<Expression>>,
+}
+
+impl ReturnStatement {
+    pub fn new(expression: Expression) -> Self {
+        Self {
+            expression: Some(Box::new(expression)),
+        }
+    }
+
+    pub fn new_null() -> Self {
+        Self { expression: None }
+    }
+
+    pub fn expression(&self) -> Option<&Expression> {
+        self.expression.as_ref().map(|e| &**e)
     }
 }
 

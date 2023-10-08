@@ -7,8 +7,8 @@ use nom_locate::{position, LocatedSpan};
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
-    FunCallExpression, FuncDefStatement, LiteralExpression, NameExpression, Statement,
-    WhileStatement,
+    FunCallExpression, FuncDefStatement, LiteralExpression, NameExpression, ReturnStatement,
+    Statement, WhileStatement,
 };
 
 type Span<'a> = LocatedSpan<&'a str>;
@@ -164,6 +164,17 @@ pub fn block_stmt(input: Span) -> Result<Statement> {
     )(input)
 }
 
+pub fn return_stmt(input: Span) -> Result<Statement> {
+    let value_return = comb::map(
+        seq::tuple((tag("return"), white1, expression)),
+        |(_, _, expr)| Statement::Return(ReturnStatement::new(expr)),
+    );
+    let no_value_return = comb::map(tag("return"), |_| {
+        Statement::Return(ReturnStatement::new_null())
+    });
+    branch::alt((value_return, no_value_return))(input)
+}
+
 pub fn stmt_list(input: Span) -> Result<Vec<Statement>> {
     comb::map(separated_list0(cp::multispace1, statement), |stmts| {
         stmts.into_iter().filter_map(|s| Some(s)).collect()
@@ -256,6 +267,7 @@ pub fn statement(input: Span) -> Result<Statement> {
         conditional_stmt,
         while_stmt,
         assignment,
+        return_stmt,
         expression_stmt,
     ))(input)
 }
