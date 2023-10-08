@@ -60,11 +60,14 @@ impl VM {
 
         // fetch opcode
         let op = &self.opcode[self.pc].clone();
-        println!("executing {:?}", op);
-        println!("pc is {}", self.pc);
+        println!("pc: {:?}, executing {:?}", self.pc, op);
         match op {
             Opcode::ConstInt(const_value) => {
                 self.stack[self.stack_top] = Object::const_int(*const_value);
+                self.stack_top += 1;
+            }
+            Opcode::ConstNull => {
+                self.stack[self.stack_top] = Object::const_null();
                 self.stack_top += 1;
             }
             Opcode::Add2 => {
@@ -318,6 +321,17 @@ impl VM {
 
                 self.pc = fun_info.address();
                 return; // avoid incrementing pc
+            }
+            Opcode::Return => {
+                let return_to_pc = self.current_stack_frame().return_pc;
+                self.pop_stackframe();
+                match return_to_pc {
+                    Some(return_to_pc) => {
+                        self.pc = return_to_pc;
+                        return; // avoid incrementing pc
+                    }
+                    None => panic!("return without call"),
+                }
             }
             _ => unimplemented!("opcode not implemented"),
         }

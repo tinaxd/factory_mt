@@ -27,6 +27,7 @@ impl FunctionInfo {
 #[derive(Debug, Clone)]
 pub enum Value {
     Invalid,
+    Null,
     Integer(i64),
     Boolean(bool),
     Function(Box<FunctionInfo>),
@@ -54,6 +55,10 @@ impl Object {
         Object {
             value: Value::const_bool(value),
         }
+    }
+
+    pub fn const_null() -> Self {
+        Object { value: Value::Null }
     }
 
     pub fn make_invalid() -> Self {

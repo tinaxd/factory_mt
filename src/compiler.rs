@@ -262,6 +262,8 @@ impl Compiler {
                     }
                 }
                 self.compile_stmt(func_body, Some(&func_body_label.as_str()));
+                self.add_op(Opcode::ConstNull);
+                self.add_op(Opcode::Return);
                 self.pop_layout();
 
                 self.add_op_md(

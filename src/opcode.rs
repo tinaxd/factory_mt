@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum Opcode {
     Nop,
+    ConstNull,
     ConstInt(i64),
     Add2,
     Sub2,
@@ -24,4 +25,5 @@ pub enum Opcode {
     CallNoKw(usize),              // count of arguments
     CallKw(usize),                // count of arguments (excluding the last kwarg)
     CreateFunction(usize, usize), // address, n_params
+    Return,
 }
