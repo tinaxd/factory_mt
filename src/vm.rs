@@ -29,6 +29,10 @@ impl VM {
         }
     }
 
+    pub fn stack_top(&self) -> Option<&Object> {
+        self.stack.get(((self.stack_top as isize) - 1) as usize)
+    }
+
     pub fn set_code(&mut self, code: Vec<Opcode>) {
         self.opcode = code;
     }
@@ -44,7 +48,8 @@ impl VM {
         }
 
         // fetch opcode
-        let op = &self.opcode[self.pc];
+        let op = &self.opcode[self.pc].clone();
+        println!("executing {:?}", op);
         match op {
             Opcode::ConstInt(const_value) => {
                 self.stack[self.stack_top] = Object::const_int(*const_value);
@@ -239,6 +244,25 @@ impl VM {
                 self.stack[self.stack_top] = value;
                 self.stack_top += 1;
             }
+            Opcode::JmpAlways(address) => {
+                self.pc = *address;
+                return; // avoid incrementing pc
+            }
+            Opcode::JmpIfTrue(address) => {
+                let cond = self.stack[self.stack_top - 1].clone();
+                self.stack_top -= 1;
+
+                match cond.value() {
+                    Value::Boolean(cond) => {
+                        if *cond {
+                            self.pc = *address;
+                            return; // avoid incrementing pc
+                        }
+                    }
+                    _ => panic!("invalid condition"),
+                }
+            }
+            Opcode::Nop => {}
             _ => unimplemented!("opcode not implemented"),
         }
 

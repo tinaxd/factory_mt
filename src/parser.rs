@@ -1,0 +1,164 @@
+use nom::bytes::complete::tag;
+use nom::character::complete as cp;
+use nom::multi::{many1, separated_list0};
+use nom::sequence as seq;
+use nom::{branch, combinator as comb, IResult};
+
+use crate::ast::{
+    AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
+    LiteralExpression, NameExpression, Statement,
+};
+
+type Result<'a, T> = IResult<&'a str, T>;
+
+fn white1(input: &str) -> Result<&str> {
+    comb::recognize(many1(cp::multispace1))(input)
+}
+
+fn white_no_newline1(input: &str) -> Result<&str> {
+    comb::recognize(many1(cp::space1))(input)
+}
+
+pub fn ident(input: &str) -> Result<&str> {
+    cp::alphanumeric1(input)
+}
+
+pub fn literal_expression(input: &str) -> Result<Expression> {
+    comb::map(cp::digit1, |s: &str| {
+        Expression::Literal(LiteralExpression::Integer(s.parse::<i64>().unwrap()))
+    })(input)
+}
+
+pub fn elementary_expression(input: &str) -> Result<Expression> {
+    let paren = seq::delimited(tag("("), expression, tag(")"));
+    let literal = literal_expression;
+    let name = comb::map(ident, |s| {
+        Expression::Name(NameExpression::new(s.to_string()))
+    });
+    branch::alt((paren, literal, name))(input)
+}
+
+pub fn product_operator(input: &str) -> Result<BinaryOperator> {
+    branch::alt((
+        comb::map(tag("*"), |_| BinaryOperator::Times),
+        comb::map(tag("/"), |_| BinaryOperator::Divide),
+        comb::map(tag("%"), |_| BinaryOperator::Modulo),
+    ))(input)
+}
+
+pub fn product_expression(input: &str) -> Result<Expression> {
+    let p1 = comb::map(
+        seq::tuple((elementary_expression, product_operator, product_expression)),
+        |(left, op, right)| Expression::Binary(BinaryExpression::new(op, left, right)),
+    );
+
+    branch::alt((p1, elementary_expression))(input)
+}
+
+pub fn add_operator(input: &str) -> Result<BinaryOperator> {
+    branch::alt((
+        comb::map(tag("+"), |_| BinaryOperator::Plus),
+        comb::map(tag("-"), |_| BinaryOperator::Minus),
+    ))(input)
+}
+
+pub fn add_expression(input: &str) -> Result<Expression> {
+    let p1 = comb::map(
+        seq::tuple((product_expression, add_operator, add_expression)),
+        |(left, op, right)| Expression::Binary(BinaryExpression::new(op, left, right)),
+    );
+
+    branch::alt((p1, product_expression))(input)
+}
+
+pub fn cmp_operator(input: &str) -> Result<BinaryOperator> {
+    branch::alt((
+        comb::map(tag("=="), |_| BinaryOperator::Eq),
+        comb::map(tag("!="), |_| BinaryOperator::Neq),
+        comb::map(tag("<"), |_| BinaryOperator::Lt),
+        comb::map(tag("<="), |_| BinaryOperator::Le),
+        comb::map(tag(">"), |_| BinaryOperator::Gt),
+        comb::map(tag(">="), |_| BinaryOperator::Ge),
+    ))(input)
+}
+
+pub fn cmp_expression(input: &str) -> Result<Expression> {
+    let p1 = comb::map(
+        seq::tuple((add_expression, cmp_operator, cmp_expression)),
+        |(left, op, right)| Expression::Binary(BinaryExpression::new(op, left, right)),
+    );
+
+    branch::alt((p1, add_expression))(input)
+}
+
+pub fn expression(input: &str) -> Result<Expression> {
+    cmp_expression(input)
+}
+
+pub fn expression_stmt(input: &str) -> Result<Statement> {
+    comb::map(expression, |e| Statement::Expression(e))(input)
+}
+
+pub fn assignment(input: &str) -> Result<Statement> {
+    comb::map(
+        seq::tuple((ident, tag("="), expression)),
+        |(name, _, expr)| Statement::Assignment(AssignmentStatement::new(name.to_string(), expr)),
+    )(input)
+}
+
+pub fn block_stmt(input: &str) -> Result<Statement> {
+    comb::map(
+        seq::tuple((tag("do"), white1, stmt_list, white1, tag("end"))),
+        |(_, _, stmts, _, _)| Statement::Block(stmts),
+    )(input)
+}
+
+pub fn stmt_list(input: &str) -> Result<Vec<Statement>> {
+    comb::map(separated_list0(many1(cp::newline), statement), |stmts| {
+        stmts.into_iter().filter_map(|s| Some(s)).collect()
+    })(input)
+}
+
+pub fn conditional_stmt(input: &str) -> Result<Statement> {
+    let no_else = comb::map(
+        seq::tuple((
+            tag("if"),
+            white_no_newline1,
+            expression,
+            white_no_newline1,
+            block_stmt,
+        )),
+        |(_, _, cond, _, body)| {
+            Statement::Conditional(ConditionalStatement::new_no_else(cond, body))
+        },
+    );
+
+    let has_else = comb::map(
+        seq::tuple((
+            tag("if"),
+            white_no_newline1,
+            expression,
+            white_no_newline1,
+            block_stmt,
+            white_no_newline1,
+            tag("else"),
+            white_no_newline1,
+            block_stmt,
+        )),
+        |(_, _, cond, _, body, _, _, _, else_body)| {
+            Statement::Conditional(ConditionalStatement::new(cond, body, else_body))
+        },
+    );
+
+    branch::alt((has_else, no_else))(input)
+}
+
+pub fn statement(input: &str) -> Result<Statement> {
+    branch::alt((block_stmt, conditional_stmt, assignment, expression_stmt))(input)
+}
+
+pub fn program(input: &str) -> Result<Vec<Statement>> {
+    comb::map(stmt_list, |stmts| {
+        stmts.into_iter().filter_map(|s| Some(s)).collect()
+    })(input)
+}

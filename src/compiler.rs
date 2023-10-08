@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use crate::{
-    ast::{BinaryExpression, Expression, LiteralExpression, Statement},
+    ast::{Expression, LiteralExpression, Statement},
     opcode::Opcode,
 };
 
@@ -31,7 +33,9 @@ impl Compiler {
     pub fn compile_expr(&mut self, expr: &Expression, top_label: Option<&str>) {
         match expr {
             Expression::Binary(bin) => {
-                let BinaryExpression { op, left, right } = bin;
+                let op = bin.op();
+                let left = bin.left();
+                let right = bin.right();
                 // generate operands
                 self.compile_expr(left, top_label);
                 self.compile_expr(right, None);
@@ -150,13 +154,32 @@ impl Compiler {
                     }
                 };
 
+                // branch end label
+                let branch_end_label = self.generate_unique_label();
+
                 // code for true branch
                 self.compile_stmt(cond.then(), Some(true_label.as_str()));
+                self.add_op_md(
+                    Opcode::JmpAlways(0),
+                    Metadata {
+                        this_label: None,
+                        jmp_to_label: Some(branch_end_label.clone()),
+                    },
+                );
 
                 // code for false branch
                 if let Some(false_label) = false_label {
                     self.compile_stmt(cond.otherwise().unwrap(), Some(false_label.as_str()));
                 }
+
+                // branch end label
+                self.add_op_md(
+                    Opcode::Nop,
+                    Metadata {
+                        this_label: Some(branch_end_label),
+                        jmp_to_label: None,
+                    },
+                );
             }
         }
     }
@@ -165,6 +188,43 @@ impl Compiler {
         let label = format!("L{}", self.current_label_index);
         self.current_label_index += 1;
         label
+    }
+
+    fn link_jumps(&mut self) {
+        let mut label_map: HashMap<String, u32> = HashMap::new();
+        // first pass: collect labels and their addresses
+        for (i, op) in self.code.iter().enumerate() {
+            let label = op.get_label();
+            if let Some(label) = label {
+                label_map.insert(label.clone(), i as u32);
+            }
+        }
+
+        // second pass: link jumps
+        for op in self.code.iter_mut() {
+            let jmp_to_label = op.get_jmp_to_label();
+            if let Some(jmp_to_label) = jmp_to_label {
+                match op.op {
+                    Opcode::JmpIfTrue(_) => {
+                        let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
+                        op.op = Opcode::JmpIfTrue(*jmp_to_addr as usize);
+                    }
+                    Opcode::JmpAlways(_) => {
+                        let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
+                        op.op = Opcode::JmpAlways(*jmp_to_addr as usize);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn link(&mut self) {
+        self.link_jumps();
+    }
+
+    pub fn code(&self) -> Vec<Opcode> {
+        self.code.iter().map(|op| op.op.clone()).collect()
     }
 }
 
@@ -175,6 +235,12 @@ struct LayoutTracker {
 
 impl LayoutTracker {
     pub fn register_local(&mut self, name: String) -> usize {
+        // if already exists, return index
+        if let Some(i) = self.get_local(&name) {
+            return i;
+        }
+
+        // otherwise, register and return index
         self.locals.push((name, self.locals.len()));
         self.locals.len() - 1
     }

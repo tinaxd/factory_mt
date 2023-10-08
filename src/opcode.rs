@@ -1,5 +1,6 @@
 #[derive(Debug, Clone)]
 pub enum Opcode {
+    Nop,
     ConstInt(i64),
     Add2,
     Sub2,

@@ -52,6 +52,15 @@ pub struct AssignmentStatement {
 }
 
 impl AssignmentStatement {
+    pub fn new(name: String, expression: Expression) -> Self {
+        Self {
+            name,
+            expression: Box::new(expression),
+        }
+    }
+}
+
+impl AssignmentStatement {
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -80,6 +89,22 @@ impl ConditionalStatement {
     pub fn otherwise(&self) -> Option<&Statement> {
         self.otherwise.as_ref().map(|s| &**s)
     }
+
+    pub fn new_no_else(cond: Expression, then: Statement) -> Self {
+        Self {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            otherwise: None,
+        }
+    }
+
+    pub fn new(cond: Expression, then: Statement, otherwise: Statement) -> Self {
+        Self {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            otherwise: Some(Box::new(otherwise)),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -94,6 +119,28 @@ pub struct BinaryExpression {
     op: BinaryOperator,
     left: Box<Expression>,
     right: Box<Expression>,
+}
+
+impl BinaryExpression {
+    pub fn new(op: BinaryOperator, left: Expression, right: Expression) -> Self {
+        Self {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
+    pub fn op(&self) -> &BinaryOperator {
+        &self.op
+    }
+
+    pub fn left(&self) -> &Expression {
+        &self.left
+    }
+
+    pub fn right(&self) -> &Expression {
+        &self.right
+    }
 }
 
 #[derive(Debug, Clone)]
