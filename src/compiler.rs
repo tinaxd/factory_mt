@@ -181,6 +181,44 @@ impl Compiler {
                     },
                 );
             }
+            Statement::While(wh) => {
+                let cond = wh.cond();
+                let body = wh.body();
+
+                let cond_label = self.generate_unique_label();
+                let body_end_label = self.generate_unique_label();
+
+                // evaluate condition
+                self.compile_expr(cond, Some(cond_label.as_str()));
+                // jump if condition is not met
+                self.add_op_md(
+                    Opcode::JmpIfFalse(0),
+                    Metadata {
+                        this_label: None,
+                        jmp_to_label: Some(body_end_label.clone()),
+                    },
+                );
+
+                // generate body
+                self.compile_stmt(body, None);
+                // jump back to condition
+                self.add_op_md(
+                    Opcode::JmpAlways(0),
+                    Metadata {
+                        this_label: None,
+                        jmp_to_label: Some(cond_label.clone()),
+                    },
+                );
+
+                // end of while
+                self.add_op_md(
+                    Opcode::Nop,
+                    Metadata {
+                        this_label: Some(body_end_label),
+                        jmp_to_label: None,
+                    },
+                );
+            }
         }
     }
 
@@ -212,6 +250,10 @@ impl Compiler {
                     Opcode::JmpAlways(_) => {
                         let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
                         op.op = Opcode::JmpAlways(*jmp_to_addr as usize);
+                    }
+                    Opcode::JmpIfFalse(_) => {
+                        let jmp_to_addr = label_map.get(&jmp_to_label).unwrap();
+                        op.op = Opcode::JmpIfFalse(*jmp_to_addr as usize);
                     }
                     _ => {}
                 }

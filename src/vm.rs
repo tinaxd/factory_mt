@@ -262,6 +262,20 @@ impl VM {
                     _ => panic!("invalid condition"),
                 }
             }
+            Opcode::JmpIfFalse(address) => {
+                let cond = self.stack[self.stack_top - 1].clone();
+                self.stack_top -= 1;
+
+                match cond.value() {
+                    Value::Boolean(cond) => {
+                        if !*cond {
+                            self.pc = *address;
+                            return; // avoid incrementing pc
+                        }
+                    }
+                    _ => panic!("invalid condition"),
+                }
+            }
             Opcode::Nop => {}
             _ => unimplemented!("opcode not implemented"),
         }

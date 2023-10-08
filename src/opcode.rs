@@ -20,4 +20,5 @@ pub enum Opcode {
     Load(usize),
     JmpIfTrue(usize),
     JmpAlways(usize),
+    JmpIfFalse(usize),
 }

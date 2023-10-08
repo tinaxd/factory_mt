@@ -21,7 +21,7 @@ fn main() {
 
     let mut vm = VM::new(1024);
     vm.set_code(compiler.code());
-    for _ in 0..1000 {
+    for _ in 0..10000 {
         vm.step_code();
         if let Some(v) = vm.stack_top() {
             println!("{:?}", v);

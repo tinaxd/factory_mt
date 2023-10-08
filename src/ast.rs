@@ -43,6 +43,7 @@ pub enum Statement {
     Expression(Expression),
     Block(Vec<Statement>),
     Conditional(ConditionalStatement),
+    While(WhileStatement),
 }
 
 #[derive(Debug, Clone)]
@@ -104,6 +105,29 @@ impl ConditionalStatement {
             then: Box::new(then),
             otherwise: Some(Box::new(otherwise)),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStatement {
+    cond: Box<Expression>,
+    body: Box<Statement>,
+}
+
+impl WhileStatement {
+    pub fn new(cond: Expression, body: Statement) -> Self {
+        Self {
+            cond: Box::new(cond),
+            body: Box::new(body),
+        }
+    }
+
+    pub fn cond(&self) -> &Expression {
+        &self.cond
+    }
+
+    pub fn body(&self) -> &Statement {
+        &self.body
     }
 }
 

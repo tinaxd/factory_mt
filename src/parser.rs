@@ -6,7 +6,7 @@ use nom::{branch, combinator as comb, IResult};
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
-    LiteralExpression, NameExpression, Statement,
+    LiteralExpression, NameExpression, Statement, WhileStatement,
 };
 
 type Result<'a, T> = IResult<&'a str, T>;
@@ -167,8 +167,27 @@ pub fn conditional_stmt(input: &str) -> Result<Statement> {
     branch::alt((has_else, no_else))(input)
 }
 
+pub fn while_stmt(input: &str) -> Result<Statement> {
+    comb::map(
+        seq::tuple((
+            tag("while"),
+            white_no_newline1,
+            expression,
+            white_no_newline1,
+            block_stmt,
+        )),
+        |(_, _, cond, _, body)| Statement::While(WhileStatement::new(cond, body)),
+    )(input)
+}
+
 pub fn statement(input: &str) -> Result<Statement> {
-    branch::alt((block_stmt, conditional_stmt, assignment, expression_stmt))(input)
+    branch::alt((
+        block_stmt,
+        conditional_stmt,
+        while_stmt,
+        assignment,
+        expression_stmt,
+    ))(input)
 }
 
 pub fn program(input: &str) -> Result<Vec<Statement>> {
