@@ -6,7 +6,7 @@ use nom::{branch, combinator as comb, IResult};
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
-    LiteralExpression, NameExpression, Statement, WhileStatement,
+    FuncDefStatement, LiteralExpression, NameExpression, Statement, WhileStatement,
 };
 
 type Result<'a, T> = IResult<&'a str, T>;
@@ -178,6 +178,32 @@ pub fn while_stmt(input: &str) -> Result<Statement> {
         )),
         |(_, _, cond, _, body)| Statement::While(WhileStatement::new(cond, body)),
     )(input)
+}
+
+pub fn funcdef_stmt(input: &str) -> Result<Statement> {
+    let tup = seq::tuple((
+        tag("def"),
+        white_no_newline1,
+        ident,
+        white_no_newline1,
+        tag("("),
+        white_no_newline1,
+        param_list,
+        white_no_newline1,
+        tag(")"),
+        white1,
+        block_stmt,
+    ));
+    comb::map(tup, |(_, _, name, _, _, _, params, _, _, _, body)| {
+        Statement::FuncDef(FuncDefStatement::new(name.to_string(), params, body))
+    })(input)
+}
+
+pub fn param_list(input: &str) -> Result<Vec<String>> {
+    let sep = seq::tuple((white1, tag(","), white1));
+    comb::map(separated_list0(sep, ident), |params| {
+        params.into_iter().map(|s| s.to_string()).collect()
+    })(input)
 }
 
 pub fn statement(input: &str) -> Result<Statement> {

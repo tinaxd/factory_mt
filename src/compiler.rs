@@ -219,6 +219,11 @@ impl Compiler {
                     },
                 );
             }
+            Statement::FuncDef(def) => {
+                let func_name = def.name();
+                let func_params = def.params();
+                let func_body = def.body();
+            }
         }
     }
 

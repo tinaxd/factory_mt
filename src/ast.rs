@@ -44,6 +44,7 @@ pub enum Statement {
     Block(Vec<Statement>),
     Conditional(ConditionalStatement),
     While(WhileStatement),
+    FuncDef(FuncDefStatement),
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +125,35 @@ impl WhileStatement {
 
     pub fn cond(&self) -> &Expression {
         &self.cond
+    }
+
+    pub fn body(&self) -> &Statement {
+        &self.body
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FuncDefStatement {
+    name: String,
+    params: Vec<String>,
+    body: Box<Statement>,
+}
+
+impl FuncDefStatement {
+    pub fn new(name: String, params: Vec<String>, body: Statement) -> Self {
+        Self {
+            name,
+            params,
+            body: Box::new(body),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn params(&self) -> &[String] {
+        &self.params
     }
 
     pub fn body(&self) -> &Statement {
