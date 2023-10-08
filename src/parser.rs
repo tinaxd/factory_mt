@@ -1,6 +1,6 @@
 use nom::bytes::complete::tag;
 use nom::character::complete as cp;
-use nom::multi::{many1, separated_list0};
+use nom::multi::separated_list0;
 use nom::sequence as seq;
 use nom::{branch, combinator as comb, IResult};
 
