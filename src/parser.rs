@@ -12,15 +12,29 @@ use crate::ast::{
 type Result<'a, T> = IResult<&'a str, T>;
 
 fn white1(input: &str) -> Result<&str> {
-    comb::recognize(many1(cp::multispace1))(input)
+    comb::recognize(cp::multispace1)(input)
 }
 
 fn white_no_newline1(input: &str) -> Result<&str> {
-    comb::recognize(many1(cp::space1))(input)
+    comb::recognize(cp::space1)(input)
+}
+
+fn is_keyword(input: &str) -> bool {
+    let keywords = vec![
+        "if", "else", "end", "do", "while", "for", "in", "break", "continue", "return",
+    ];
+    keywords.contains(&input)
 }
 
 pub fn ident(input: &str) -> Result<&str> {
-    cp::alphanumeric1(input)
+    let (new_input, o) = cp::alphanumeric1(input)?;
+    if is_keyword(o) {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+    Ok((new_input, o))
 }
 
 pub fn literal_expression(input: &str) -> Result<Expression> {
@@ -114,7 +128,7 @@ pub fn block_stmt(input: &str) -> Result<Statement> {
 }
 
 pub fn stmt_list(input: &str) -> Result<Vec<Statement>> {
-    comb::map(separated_list0(many1(cp::newline), statement), |stmts| {
+    comb::map(separated_list0(cp::multispace1, statement), |stmts| {
         stmts.into_iter().filter_map(|s| Some(s)).collect()
     })(input)
 }
