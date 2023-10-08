@@ -5,10 +5,32 @@ pub struct Object {
 }
 
 #[derive(Debug, Clone)]
+pub struct FunctionInfo {
+    address: usize,
+    n_params: usize,
+}
+
+impl FunctionInfo {
+    pub fn new(address: usize, n_params: usize) -> Self {
+        Self { address, n_params }
+    }
+
+    pub fn address(&self) -> usize {
+        self.address
+    }
+
+    pub fn n_params(&self) -> usize {
+        self.n_params
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Value {
     Invalid,
     Integer(i64),
     Boolean(bool),
+    Function(Box<FunctionInfo>),
+    // Dict()
 }
 
 impl Value {
@@ -42,5 +64,9 @@ impl Object {
 
     pub fn value(&self) -> &Value {
         &self.value
+    }
+
+    pub fn new_from_value(value: Value) -> Self {
+        Object { value }
     }
 }

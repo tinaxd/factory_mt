@@ -21,6 +21,7 @@ pub enum Opcode {
     JmpIfTrue(usize),
     JmpAlways(usize),
     JmpIfFalse(usize),
-    CallNoKw(usize), // count of arguments
-    CallKw(usize),   // count of arguments (excluding the last kwarg)
+    CallNoKw(usize),              // count of arguments
+    CallKw(usize),                // count of arguments (excluding the last kwarg)
+    CreateFunction(usize, usize), // address, n_params
 }

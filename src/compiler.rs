@@ -110,6 +110,7 @@ impl Compiler {
                 self.add_op(op);
 
                 // generate return destination
+                self.add_op(Opcode::Nop);
             }
         }
     }
@@ -242,8 +243,40 @@ impl Compiler {
                 let func_params = def.params();
                 let func_body = def.body();
 
+                let func_def_end_label = self.generate_unique_label();
+                self.add_op_md(
+                    Opcode::JmpAlways(0),
+                    Metadata {
+                        this_label: None,
+                        jmp_to_label: Some(func_def_end_label.clone()),
+                    },
+                );
+
                 let func_body_label = self.generate_func_label(func_name);
+
+                self.push_layout();
+                {
+                    let lay = self.layouts.first_mut().unwrap();
+                    for param in func_params.iter() {
+                        lay.register_local(param.to_string());
+                    }
+                }
                 self.compile_stmt(func_body, Some(&func_body_label.as_str()));
+                self.pop_layout();
+
+                self.add_op_md(
+                    Opcode::CreateFunction(0, func_params.len()),
+                    Metadata {
+                        this_label: None,
+                        jmp_to_label: Some(func_body_label.clone()),
+                    },
+                );
+                let func_index = self
+                    .layouts
+                    .first_mut()
+                    .unwrap()
+                    .register_local(func_name.to_string());
+                self.add_op(Opcode::Store(func_index));
             }
         }
     }
@@ -298,6 +331,14 @@ impl Compiler {
 
     pub fn code(&self) -> Vec<Opcode> {
         self.code.iter().map(|op| op.op.clone()).collect()
+    }
+
+    fn push_layout(&mut self) {
+        self.layouts.push(LayoutTracker::new());
+    }
+
+    fn pop_layout(&mut self) {
+        self.layouts.pop();
     }
 }
 

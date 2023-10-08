@@ -1,5 +1,5 @@
 use crate::{
-    object::{Object, Value},
+    object::{FunctionInfo, Object, Value},
     opcode::Opcode,
 };
 
@@ -31,6 +31,17 @@ impl VM {
 
     pub fn stack_top(&self) -> Option<&Object> {
         self.stack.get(((self.stack_top as isize) - 1) as usize)
+    }
+
+    fn push_stackframe(&mut self, return_pc: usize) {
+        self.stack_frame_top += 1;
+        self.stack_frames
+            .push(StackFrame::new_with_return(return_pc));
+    }
+
+    fn pop_stackframe(&mut self) {
+        self.stack_frame_top -= 1;
+        self.stack_frames.pop();
     }
 
     pub fn set_code(&mut self, code: Vec<Opcode>) {
@@ -277,6 +288,35 @@ impl VM {
                 }
             }
             Opcode::Nop => {}
+            Opcode::CreateFunction(address, n_params) => {
+                let func_info = FunctionInfo::new(*address, *n_params);
+                let func_value = Value::Function(Box::new(func_info));
+                let func_object = Object::new_from_value(func_value);
+                self.stack[self.stack_top] = func_object;
+                self.stack_top += 1;
+            }
+            Opcode::CallNoKw(n_args) => {
+                let fun_object = self.stack[self.stack_top - n_args - 1].clone();
+                let fun_value = fun_object.value();
+                let fun_info = match fun_value {
+                    Value::Function(fun_info) => fun_info,
+                    _ => panic!("invalid function"),
+                };
+
+                if fun_info.n_params() != *n_args {
+                    panic!("invalid number of arguments");
+                }
+
+                self.push_stackframe(self.pc + 1);
+                for i in (*n_args - 1)..0 {
+                    let arg = self.stack[self.stack_top - 1].clone();
+                    self.stack_top -= 1;
+                    self.current_stack_frame().store(i, arg);
+                }
+
+                self.pc = fun_info.address();
+                return; // avoid incrementing pc
+            }
             _ => unimplemented!("opcode not implemented"),
         }
 
@@ -287,11 +327,22 @@ impl VM {
 #[derive(Debug)]
 struct StackFrame {
     memory: Vec<Object>,
+    return_pc: Option<usize>,
 }
 
 impl StackFrame {
     pub fn new() -> Self {
-        StackFrame { memory: Vec::new() }
+        StackFrame {
+            memory: Vec::new(),
+            return_pc: None,
+        }
+    }
+
+    pub fn new_with_return(return_pc: usize) -> Self {
+        StackFrame {
+            memory: Vec::new(),
+            return_pc: Some(return_pc),
+        }
     }
 
     pub fn store(&mut self, address: usize, object: Object) {
