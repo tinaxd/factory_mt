@@ -1,8 +1,9 @@
+use factory::compiler::Compiler;
 use factory::parser::program as parse_program;
-use factory::{compiler::Compiler, vm::VM};
+use factory::vm::VM;
 use nom::Finish;
 use nom_locate::LocatedSpan;
-use std::io::Read;
+use std::io::{Read, Write};
 
 fn main() {
     // read stdin until eof
@@ -25,11 +26,17 @@ fn main() {
     }
 
     let mut compiler = Compiler::new();
-    compiler.compile_stmt(&program[0], None);
-    compiler.link();
+    compiler.compile_top(&program[0]);
+    let code = compiler.link();
+
+    // write code to code.txt
+    let mut file = std::fs::File::create("code.txt").unwrap();
+    for (i, c) in code.iter().enumerate() {
+        writeln!(file, "{}: {:#?}", i, c).unwrap();
+    }
 
     let mut vm = VM::new(1024);
-    vm.set_code(compiler.code());
+    vm.set_code(code);
     for _ in 0..10000 {
         vm.step_code();
         if let Some(v) = vm.stack_top() {

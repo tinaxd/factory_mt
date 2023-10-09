@@ -11,8 +11,10 @@ pub struct VM {
     opcode: Vec<Opcode>,
     pc: usize,
 
-    stack_frames: Vec<StackFrame>,
+    stack_frames: Vec<LinearMemory>,
     stack_frame_top: usize,
+
+    globals: LinearMemory,
 }
 
 impl VM {
@@ -24,8 +26,10 @@ impl VM {
             opcode: vec![],
             pc: 0,
 
-            stack_frames: vec![StackFrame::new()],
+            stack_frames: vec![LinearMemory::new()],
             stack_frame_top: 0,
+
+            globals: LinearMemory::new(),
         }
     }
 
@@ -36,7 +40,7 @@ impl VM {
     fn push_stackframe(&mut self, return_pc: usize) {
         self.stack_frame_top += 1;
         self.stack_frames
-            .push(StackFrame::new_with_return(return_pc));
+            .push(LinearMemory::new_with_return(return_pc));
     }
 
     fn pop_stackframe(&mut self) {
@@ -48,7 +52,7 @@ impl VM {
         self.opcode = code;
     }
 
-    fn current_stack_frame(&mut self) -> &mut StackFrame {
+    fn current_stack_frame(&mut self) -> &mut LinearMemory {
         &mut self.stack_frames[self.stack_frame_top]
     }
 
@@ -259,6 +263,17 @@ impl VM {
                 self.stack[self.stack_top] = value;
                 self.stack_top += 1;
             }
+            Opcode::StoreGlobal(address) => {
+                let value = self.stack[self.stack_top - 1].clone();
+                self.stack_top -= 1;
+
+                self.globals.store(*address, value);
+            }
+            Opcode::LoadGlobal(address) => {
+                let value = self.globals.load(*address);
+                self.stack[self.stack_top] = value;
+                self.stack_top += 1;
+            }
             Opcode::JmpAlways(address) => {
                 self.pc = *address;
                 return; // avoid incrementing pc
@@ -342,21 +357,21 @@ impl VM {
 }
 
 #[derive(Debug)]
-struct StackFrame {
+struct LinearMemory {
     memory: Vec<Object>,
     return_pc: Option<usize>,
 }
 
-impl StackFrame {
+impl LinearMemory {
     pub fn new() -> Self {
-        StackFrame {
+        LinearMemory {
             memory: Vec::new(),
             return_pc: None,
         }
     }
 
     pub fn new_with_return(return_pc: usize) -> Self {
-        StackFrame {
+        LinearMemory {
             memory: Vec::new(),
             return_pc: Some(return_pc),
         }
