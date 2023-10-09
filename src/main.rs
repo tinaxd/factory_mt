@@ -37,7 +37,7 @@ fn main() {
 
     let mut vm = VM::new(1024);
     vm.set_code(code);
-    for _ in 0..10000 {
+    loop {
         vm.step_code();
         if let Some(v) = vm.stack_top() {
             println!("{:?}", v);

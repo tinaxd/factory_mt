@@ -160,17 +160,33 @@ impl<'a> UnitCompiler<'a> {
                 let var_name = name.get_name();
                 if !self.is_global {
                     let var_index = self.current_layout_mut().get_local(var_name);
-                    let var_index = match var_index {
-                        None => panic!("variable not found: {}", var_name),
-                        Some(i) => i,
-                    };
-                    let op = Opcode::Load(var_index);
+                    match var_index {
+                        None => {
+                            // fall back to global
+                            let var_index = self.globals.get_global(var_name);
+                            match var_index {
+                                None => panic!("variable not found: {}", var_name),
+                                Some(var_index) => {
+                                    let op = Opcode::LoadGlobal(var_index);
 
-                    let md = Metadata {
-                        this_label: top_labels.to_owned(),
-                        jmp_to_label: None,
+                                    let md = Metadata {
+                                        this_label: top_labels.to_owned(),
+                                        jmp_to_label: None,
+                                    };
+                                    self.add_op_md(op, md);
+                                }
+                            };
+                        }
+                        Some(var_index) => {
+                            let op = Opcode::Load(var_index);
+
+                            let md = Metadata {
+                                this_label: top_labels.to_owned(),
+                                jmp_to_label: None,
+                            };
+                            self.add_op_md(op, md);
+                        }
                     };
-                    self.add_op_md(op, md);
                 } else {
                     let var_index = self.globals.get_global(var_name);
                     let var_index = match var_index {
@@ -209,6 +225,7 @@ impl<'a> UnitCompiler<'a> {
     }
 
     pub fn compile_stmt(&mut self, stmt: &Statement, top_labels: &Vec<String>) {
+        println!("compiling stmt: {:?}", stmt);
         match stmt {
             Statement::Expression(expr) => {
                 self.compile_expr(expr, top_labels);
@@ -340,14 +357,13 @@ impl<'a> UnitCompiler<'a> {
                 let func_params = def.params();
                 let func_body = def.body();
 
-                // let func_def_end_label = self.generate_unique_label();
-                // self.add_op_md(
-                //     Opcode::JmpAlways(0),
-                //     Metadata {
-                //         this_label: top_label.map(|s| vec![s.to_string()]).unwrap_or(vec![]),
-                //         jmp_to_label: Some(func_def_end_label.clone()),
-                //     },
-                // );
+                // register function earlier to handle recursive calls
+                let func_index = if !self.is_global {
+                    self.current_layout_mut()
+                        .register_local(func_name.to_string())
+                } else {
+                    self.globals.register_global(func_name)
+                };
 
                 let func_body_label = self.generate_func_label(func_name);
 
@@ -366,14 +382,14 @@ impl<'a> UnitCompiler<'a> {
                 );
 
                 if !self.is_global {
-                    let func_index = self
-                        .current_layout_mut()
-                        .register_local(func_name.to_string());
                     self.add_op(Opcode::Store(func_index));
                 } else {
-                    let func_index = self.globals.register_global(func_name);
                     self.add_op(Opcode::StoreGlobal(func_index));
                 }
+                println!(
+                    "registered function: {} (global: {})",
+                    func_name, self.is_global
+                );
             }
             Statement::Return(ret) => {
                 match ret.expression() {
