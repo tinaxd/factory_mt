@@ -77,7 +77,11 @@ impl Compiler {
             },
             Expression::Name(name) => {
                 let var_name = name.get_name();
-                let var_index = self.layouts.last().unwrap().get_local(var_name).unwrap();
+                let var_index = self.layouts.last().unwrap().get_local(var_name);
+                let var_index = match var_index {
+                    None => panic!("variable not found: {}", var_name),
+                    Some(i) => i,
+                };
                 let op = Opcode::Load(var_index);
 
                 match top_label {
