@@ -3,7 +3,7 @@ use nom::character::complete as cp;
 use nom::multi::{many0, separated_list0, separated_list1};
 use nom::sequence as seq;
 use nom::{branch, combinator as comb, IResult};
-use nom_locate::{position, LocatedSpan};
+use nom_locate::LocatedSpan;
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
