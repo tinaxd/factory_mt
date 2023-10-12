@@ -403,6 +403,7 @@ impl<'a> UnitCompiler<'a> {
                 }
                 self.add_op(Opcode::Return);
             }
+            _ => unimplemented!(),
         }
     }
 

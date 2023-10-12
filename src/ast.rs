@@ -40,6 +40,7 @@ pub enum StatementType {
 #[derive(Debug, Clone)]
 pub enum Statement {
     Assignment(AssignmentStatement),
+    ObjectAssignment(ObjectAssignmentStatement),
     Expression(Expression),
     Block(Vec<Statement>),
     Conditional(ConditionalStatement),
@@ -61,11 +62,38 @@ impl AssignmentStatement {
             expression: Box::new(expression),
         }
     }
-}
 
-impl AssignmentStatement {
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn expression(&self) -> &Expression {
+        &self.expression
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ObjectAssignmentStatement {
+    object: Box<Expression>,
+    index: Box<Expression>,
+    expression: Box<Expression>,
+}
+
+impl ObjectAssignmentStatement {
+    pub fn new(object: Expression, index: Expression, expression: Expression) -> Self {
+        Self {
+            object: Box::new(object),
+            index: Box::new(index),
+            expression: Box::new(expression),
+        }
+    }
+
+    pub fn object(&self) -> &Expression {
+        &self.object
+    }
+
+    pub fn index(&self) -> &Expression {
+        &self.index
     }
 
     pub fn expression(&self) -> &Expression {
@@ -225,6 +253,7 @@ impl BinaryExpression {
 pub enum LiteralExpression {
     Integer(i64),
     Float(f64),
+    List,
 }
 
 #[derive(Debug, Clone)]
@@ -268,14 +297,14 @@ impl NameExpression {
 #[derive(Debug, Clone)]
 pub struct IndexExpression {
     callee: Box<Expression>,
-    args: Vec<Expression>,
+    arg: Box<Expression>,
 }
 
 impl IndexExpression {
-    pub fn new(callee: Expression, args: Vec<Expression>) -> Self {
+    pub fn new(callee: Expression, arg: Expression) -> Self {
         Self {
             callee: Box::new(callee),
-            args,
+            arg: Box::new(arg),
         }
     }
 
@@ -283,7 +312,7 @@ impl IndexExpression {
         &self.callee
     }
 
-    pub fn args(&self) -> &[Expression] {
-        &self.args
+    pub fn arg(&self) -> &Expression {
+        &self.arg
     }
 }
