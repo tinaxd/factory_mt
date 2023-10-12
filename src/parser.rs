@@ -7,8 +7,8 @@ use nom_locate::{position, LocatedSpan};
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
-    FunCallExpression, FuncDefStatement, LiteralExpression, NameExpression, ReturnStatement,
-    Statement, WhileStatement,
+    FunCallExpression, FuncDefStatement, IndexExpression, LiteralExpression, NameExpression,
+    ReturnStatement, Statement, WhileStatement,
 };
 
 type Span<'a> = LocatedSpan<&'a str>;
@@ -55,20 +55,17 @@ pub fn literal_expression(input: Span) -> Result<Expression> {
     branch::alt((int_lit, name))(input)
 }
 
-fn callee_expression(input: Span) -> Result<Expression> {
+fn elementary_expression(input: Span) -> Result<Expression> {
     let name = comb::map(ident, |s| {
         Expression::Name(NameExpression::new(s.to_string()))
     });
     let paren_expr = seq::delimited(tag("("), expression, tag(")"));
-    branch::alt((name, paren_expr))(input)
+    branch::alt((literal_expression, paren_expr, name))(input)
 }
 
-pub fn elementary_expression(input: Span) -> Result<Expression> {
-    let paren = seq::delimited(tag("("), expression, tag(")"));
-    let literal = literal_expression;
-    let call = comb::map(
+pub fn call_expression(input: Span) -> Result<Expression> {
+    let call_paren = comb::map(
         seq::tuple((
-            callee_expression,
             cp::multispace0,
             tag("("),
             cp::multispace0,
@@ -76,10 +73,32 @@ pub fn elementary_expression(input: Span) -> Result<Expression> {
             cp::multispace0,
             tag(")"),
         )),
-        |(callee, _, _, _, args, _, _)| Expression::FunCall(FunCallExpression::new(callee, args)),
+        |(_, _, _, args, _, _)| args,
     );
 
-    branch::alt((paren, call, literal))(input)
+    let index_paren = comb::map(
+        seq::tuple((
+            cp::multispace0,
+            tag("["),
+            cp::multispace0,
+            arg_list,
+            cp::multispace0,
+            tag("]"),
+        )),
+        |(_, _, _, args, _, _)| args,
+    );
+
+    let call = comb::map(
+        seq::tuple((elementary_expression, call_paren)),
+        |(callee, args)| Expression::FunCall(FunCallExpression::new(callee, args)),
+    );
+
+    let indexing = comb::map(
+        seq::tuple((elementary_expression, index_paren)),
+        |(callee, args)| Expression::Index(IndexExpression::new(callee, args)),
+    );
+
+    branch::alt((call, indexing, elementary_expression))(input)
 }
 
 pub fn product_operator(input: Span) -> Result<BinaryOperator> {
@@ -92,7 +111,7 @@ pub fn product_operator(input: Span) -> Result<BinaryOperator> {
 
 pub fn product_expression(input: Span) -> Result<Expression> {
     let p = seq::tuple((
-        elementary_expression,
+        call_expression,
         many0(seq::tuple((product_operator, product_expression))),
     ));
     comb::map(p, |(first, rest)| {

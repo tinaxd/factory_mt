@@ -221,6 +221,7 @@ impl<'a> UnitCompiler<'a> {
                 // generate return destination
                 self.add_op(Opcode::Nop);
             }
+            _ => unimplemented!(),
         }
     }
 

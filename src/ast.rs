@@ -188,6 +188,7 @@ pub enum Expression {
     Binary(BinaryExpression),
     Literal(LiteralExpression),
     FunCall(FunCallExpression),
+    Index(IndexExpression),
     Name(NameExpression),
 }
 
@@ -261,5 +262,28 @@ impl NameExpression {
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IndexExpression {
+    callee: Box<Expression>,
+    args: Vec<Expression>,
+}
+
+impl IndexExpression {
+    pub fn new(callee: Expression, args: Vec<Expression>) -> Self {
+        Self {
+            callee: Box::new(callee),
+            args,
+        }
+    }
+
+    pub fn callee(&self) -> &Expression {
+        &self.callee
+    }
+
+    pub fn args(&self) -> &[Expression] {
+        &self.args
     }
 }
