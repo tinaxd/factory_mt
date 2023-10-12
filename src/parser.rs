@@ -1,6 +1,6 @@
 use nom::bytes::complete::tag;
 use nom::character::complete as cp;
-use nom::multi::{separated_list0, separated_list1};
+use nom::multi::{many0, separated_list0, separated_list1};
 use nom::sequence as seq;
 use nom::{branch, combinator as comb, IResult};
 use nom_locate::{position, LocatedSpan};
@@ -91,12 +91,15 @@ pub fn product_operator(input: Span) -> Result<BinaryOperator> {
 }
 
 pub fn product_expression(input: Span) -> Result<Expression> {
-    let p1 = comb::map(
-        seq::tuple((elementary_expression, product_operator, product_expression)),
-        |(left, op, right)| Expression::Binary(BinaryExpression::new(op, left, right)),
-    );
-
-    branch::alt((p1, elementary_expression))(input)
+    let p = seq::tuple((
+        elementary_expression,
+        many0(seq::tuple((product_operator, product_expression))),
+    ));
+    comb::map(p, |(first, rest)| {
+        rest.into_iter().fold(first, |acc, (op, expr)| {
+            Expression::Binary(BinaryExpression::new(op, acc, expr))
+        })
+    })(input)
 }
 
 pub fn add_operator(input: Span) -> Result<BinaryOperator> {
@@ -107,12 +110,15 @@ pub fn add_operator(input: Span) -> Result<BinaryOperator> {
 }
 
 pub fn add_expression(input: Span) -> Result<Expression> {
-    let p1 = comb::map(
-        seq::tuple((product_expression, add_operator, add_expression)),
-        |(left, op, right)| Expression::Binary(BinaryExpression::new(op, left, right)),
-    );
-
-    branch::alt((p1, product_expression))(input)
+    let p = seq::tuple((
+        product_expression,
+        many0(seq::tuple((add_operator, add_expression))),
+    ));
+    comb::map(p, |(first, rest)| {
+        rest.into_iter().fold(first, |acc, (op, expr)| {
+            Expression::Binary(BinaryExpression::new(op, acc, expr))
+        })
+    })(input)
 }
 
 pub fn cmp_operator(input: Span) -> Result<BinaryOperator> {
@@ -127,12 +133,15 @@ pub fn cmp_operator(input: Span) -> Result<BinaryOperator> {
 }
 
 pub fn cmp_expression(input: Span) -> Result<Expression> {
-    let p1 = comb::map(
-        seq::tuple((add_expression, cmp_operator, cmp_expression)),
-        |(left, op, right)| Expression::Binary(BinaryExpression::new(op, left, right)),
-    );
-
-    branch::alt((p1, add_expression))(input)
+    let p = seq::tuple((
+        add_expression,
+        many0(seq::tuple((cmp_operator, cmp_expression))),
+    ));
+    comb::map(p, |(first, rest)| {
+        rest.into_iter().fold(first, |acc, (op, expr)| {
+            Expression::Binary(BinaryExpression::new(op, acc, expr))
+        })
+    })(input)
 }
 
 pub fn expression(input: Span) -> Result<Expression> {
