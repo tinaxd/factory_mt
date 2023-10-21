@@ -3,9 +3,11 @@ use crate::{
     opcode::Opcode,
 };
 
+use crate::object::ObjectPtr;
+
 #[derive(Debug)]
 pub struct VM {
-    stack: Vec<Object>,
+    stack: Vec<ObjectPtr>,
     stack_top: usize,
 
     opcode: Vec<Opcode>,
@@ -15,12 +17,14 @@ pub struct VM {
     stack_frame_top: usize,
 
     globals: LinearMemory,
+
+    gc: crate::object::GCSystem,
 }
 
 impl VM {
     pub fn new(stack_size: usize) -> Self {
         Self {
-            stack: vec![Object::make_invalid(); stack_size],
+            stack: vec![ObjectPtr::wrap(Object::make_invalid()); stack_size],
             stack_top: 0,
 
             opcode: vec![],
@@ -30,11 +34,15 @@ impl VM {
             stack_frame_top: 0,
 
             globals: LinearMemory::new(),
+
+            gc: crate::object::GCSystem::new(100),
         }
     }
 
     pub fn stack_top(&self) -> Option<&Object> {
-        self.stack.get(((self.stack_top as isize) - 1) as usize)
+        self.stack
+            .get(((self.stack_top as isize) - 1) as usize)
+            .map(|w| w.get())
     }
 
     fn push_stackframe(&mut self, return_pc: usize) {
@@ -56,6 +64,53 @@ impl VM {
         &mut self.stack_frames[self.stack_frame_top]
     }
 
+    fn opcode_arithmetic(&mut self, op: Opcode) {
+        let right = self.stack[self.stack_top - 1].clone();
+        let left = self.stack[self.stack_top - 2].clone();
+        self.stack_top -= 2;
+
+        let result = match (left.get().value(), right.get().value()) {
+            (Value::Integer(left), Value::Integer(right)) => {
+                ObjectPtr::wrap(Object::const_int(match op {
+                    Opcode::Add2 => left + right,
+                    Opcode::Sub2 => left - right,
+                    Opcode::Mul2 => left * right,
+                    Opcode::Div2 => left / right,
+                    Opcode::Mod2 => left % right,
+                    _ => panic!("invalid operands for arithmetic"),
+                }))
+            }
+            _ => panic!("invalid operands for arithmetic"),
+        };
+
+        self.stack[self.stack_top] = result;
+        self.stack_top += 1;
+    }
+
+    fn opcode_compare(&mut self, op: Opcode) {
+        let right = self.stack[self.stack_top - 1].clone();
+        let left = self.stack[self.stack_top - 2].clone();
+        self.stack_top -= 2;
+
+        let result = match (left.get().value(), right.get().value()) {
+            (Value::Integer(left), Value::Integer(right)) => {
+                ObjectPtr::wrap(Object::const_bool(match op {
+                    Opcode::Eq2 => left == right,
+                    Opcode::Neq2 => left != right,
+                    Opcode::Lt2 => left < right,
+                    Opcode::Gt2 => left > right,
+                    Opcode::Le2 => left <= right,
+                    Opcode::Ge2 => left >= right,
+                    _ => panic!("invalid operands for arithmetic"),
+                }))
+            }
+            _ => panic!("invalid operands for arithmetic"),
+        };
+
+        self.stack[self.stack_top] = result;
+        self.stack_top += 1;
+    }
+
     pub fn step_code(&mut self) {
         // early return if pc is larger than code size
         if self.pc >= self.opcode.len() {
@@ -67,182 +122,50 @@ impl VM {
         println!("pc: {:?}, executing {:?}", self.pc, op);
         match op {
             Opcode::ConstInt(const_value) => {
-                self.stack[self.stack_top] = Object::const_int(*const_value);
+                self.stack[self.stack_top] = ObjectPtr::wrap(Object::const_int(*const_value));
                 self.stack_top += 1;
             }
             Opcode::ConstNull => {
-                self.stack[self.stack_top] = Object::const_null();
+                self.stack[self.stack_top] = ObjectPtr::wrap(Object::const_null());
                 self.stack_top += 1;
             }
             Opcode::Add2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_int(left + right)
-                    }
-                    _ => panic!("invalid operands for add"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_arithmetic(op.clone());
             }
             Opcode::Sub2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_int(left - right)
-                    }
-                    _ => panic!("invalid operands for sub"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_arithmetic(op.clone());
             }
             Opcode::Mul2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_int(left * right)
-                    }
-                    _ => panic!("invalid operands for mul"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_arithmetic(op.clone());
             }
             Opcode::Div2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_int(left / right)
-                    }
-                    _ => panic!("invalid operands for div"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_arithmetic(op.clone());
             }
             Opcode::Mod2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_int(left % right)
-                    }
-                    _ => panic!("invalid operands for mod"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_arithmetic(op.clone());
             }
             Opcode::Eq2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_bool(left == right)
-                    }
-                    _ => panic!("invalid operands for eq"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_compare(op.clone());
             }
             Opcode::Neq2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_bool(left != right)
-                    }
-                    _ => panic!("invalid operands for neq"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_compare(op.clone());
             }
             Opcode::Lt2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_bool(left < right)
-                    }
-                    _ => panic!("invalid operands for lt"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_compare(op.clone());
             }
             Opcode::Gt2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_bool(left > right)
-                    }
-                    _ => panic!("invalid operands for gt"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_compare(op.clone());
             }
             Opcode::Le2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_bool(left <= right)
-                    }
-                    _ => panic!("invalid operands for le"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_compare(op.clone());
             }
             Opcode::Ge2 => {
-                let right = self.stack[self.stack_top - 1].clone();
-                let left = self.stack[self.stack_top - 2].clone();
-                self.stack_top -= 2;
-
-                let result = match (left.value(), right.value()) {
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        Object::const_bool(left >= right)
-                    }
-                    _ => panic!("invalid operands for ge"),
-                };
-
-                self.stack[self.stack_top] = result;
-                self.stack_top += 1;
+                self.opcode_compare(op.clone());
             }
             Opcode::Exit => {
                 let exit_code = self.stack[self.stack_top - 1].clone();
                 self.stack_top -= 1;
-                match exit_code.value() {
+                match exit_code.get().value() {
                     Value::Integer(exit_code) => {
                         std::process::exit(*exit_code as i32);
                     }
@@ -282,7 +205,7 @@ impl VM {
                 let cond = self.stack[self.stack_top - 1].clone();
                 self.stack_top -= 1;
 
-                match cond.value() {
+                match cond.get().value() {
                     Value::Boolean(cond) => {
                         if *cond {
                             self.pc = *address;
@@ -296,7 +219,7 @@ impl VM {
                 let cond = self.stack[self.stack_top - 1].clone();
                 self.stack_top -= 1;
 
-                match cond.value() {
+                match cond.get().value() {
                     Value::Boolean(cond) => {
                         if !*cond {
                             self.pc = *address;
@@ -311,12 +234,12 @@ impl VM {
                 let func_info = FunctionInfo::new(*address, *n_params);
                 let func_value = Value::Function(Box::new(func_info));
                 let func_object = Object::new_from_value(func_value);
-                self.stack[self.stack_top] = func_object;
+                self.stack[self.stack_top] = ObjectPtr::wrap(func_object);
                 self.stack_top += 1;
             }
             Opcode::CallNoKw(n_args) => {
                 let fun_object = self.stack[self.stack_top - n_args - 1].clone();
-                let fun_value = fun_object.value();
+                let fun_value = fun_object.get().value();
                 let fun_info = match fun_value {
                     Value::Function(fun_info) => fun_info,
                     _ => panic!("invalid function"),
@@ -358,7 +281,7 @@ impl VM {
 
 #[derive(Debug)]
 struct LinearMemory {
-    memory: Vec<Object>,
+    memory: Vec<ObjectPtr>,
     return_pc: Option<usize>,
 }
 
@@ -377,17 +300,18 @@ impl LinearMemory {
         }
     }
 
-    pub fn store(&mut self, address: usize, object: Object) {
+    pub fn store(&mut self, address: usize, object: ObjectPtr) {
         if address >= self.memory.len() {
-            self.memory.resize(address + 1, Object::make_invalid());
+            self.memory
+                .resize(address + 1, ObjectPtr::wrap(Object::make_invalid()));
         }
 
         self.memory[address] = object;
     }
 
-    pub fn load(&self, address: usize) -> Object {
+    pub fn load(&self, address: usize) -> ObjectPtr {
         if address >= self.memory.len() {
-            Object::make_invalid()
+            ObjectPtr::wrap(Object::make_invalid())
         } else {
             self.memory[address].clone()
         }
