@@ -23,20 +23,49 @@ pub struct VM {
 
 impl VM {
     pub fn new(stack_size: usize) -> Self {
-        Self {
-            stack: vec![ObjectPtr::wrap(Object::make_invalid()); stack_size],
+        let mut gc = crate::object::GCSystem::new(100);
+        let invalid_obj = gc.new_object(Object::make_invalid(), &mut vec![]);
+        let vm = Self {
+            stack: vec![gc.new_object(Object::make_invalid(), &mut vec![]); stack_size],
             stack_top: 0,
 
             opcode: vec![],
             pc: 0,
 
-            stack_frames: vec![LinearMemory::new()],
+            stack_frames: vec![LinearMemory::new(invalid_obj.clone())],
             stack_frame_top: 0,
 
-            globals: LinearMemory::new(),
+            globals: LinearMemory::new(invalid_obj),
 
-            gc: crate::object::GCSystem::new(100),
+            gc,
+        };
+        vm
+    }
+
+    pub fn gc_mark(&mut self) {
+        let mut roots = self.collect_objptr();
+        for sf in self.stack_frames.iter_mut() {
+            roots.extend(sf.collect_objptr().iter().cloned().collect::<Vec<_>>());
         }
+        for root in roots {
+            self.gc.mark_all(root);
+        }
+    }
+
+    pub fn gc_sweep(&mut self) {
+        self.gc.sweep();
+    }
+
+    fn collect_objptr(&mut self) -> Vec<ObjectPtr> {
+        self.stack.clone()
+    }
+
+    pub fn alloc_object(&mut self, object: Object) -> ObjectPtr {
+        let mut roots = self.collect_objptr();
+        for sf in self.stack_frames.iter_mut() {
+            roots.extend(sf.collect_objptr().iter().cloned().collect::<Vec<_>>());
+        }
+        self.gc.new_object(object, &mut roots)
     }
 
     pub fn stack_top(&self) -> Option<&Object> {
@@ -47,8 +76,9 @@ impl VM {
 
     fn push_stackframe(&mut self, return_pc: usize) {
         self.stack_frame_top += 1;
+        let invalid_obj = self.alloc_object(Object::make_invalid());
         self.stack_frames
-            .push(LinearMemory::new_with_return(return_pc));
+            .push(LinearMemory::new_with_return(invalid_obj, return_pc));
     }
 
     fn pop_stackframe(&mut self) {
@@ -71,7 +101,7 @@ impl VM {
 
         let result = match (left.get().value(), right.get().value()) {
             (Value::Integer(left), Value::Integer(right)) => {
-                ObjectPtr::wrap(Object::const_int(match op {
+                self.alloc_object(Object::const_int(match op {
                     Opcode::Add2 => left + right,
                     Opcode::Sub2 => left - right,
                     Opcode::Mul2 => left * right,
@@ -94,7 +124,7 @@ impl VM {
 
         let result = match (left.get().value(), right.get().value()) {
             (Value::Integer(left), Value::Integer(right)) => {
-                ObjectPtr::wrap(Object::const_bool(match op {
+                self.alloc_object(Object::const_bool(match op {
                     Opcode::Eq2 => left == right,
                     Opcode::Neq2 => left != right,
                     Opcode::Lt2 => left < right,
@@ -122,11 +152,11 @@ impl VM {
         println!("pc: {:?}, executing {:?}", self.pc, op);
         match op {
             Opcode::ConstInt(const_value) => {
-                self.stack[self.stack_top] = ObjectPtr::wrap(Object::const_int(*const_value));
+                self.stack[self.stack_top] = self.alloc_object(Object::const_int(*const_value));
                 self.stack_top += 1;
             }
             Opcode::ConstNull => {
-                self.stack[self.stack_top] = ObjectPtr::wrap(Object::const_null());
+                self.stack[self.stack_top] = self.alloc_object(Object::const_null());
                 self.stack_top += 1;
             }
             Opcode::Add2 => {
@@ -234,7 +264,7 @@ impl VM {
                 let func_info = FunctionInfo::new(*address, *n_params);
                 let func_value = Value::Function(Box::new(func_info));
                 let func_object = Object::new_from_value(func_value);
-                self.stack[self.stack_top] = ObjectPtr::wrap(func_object);
+                self.stack[self.stack_top] = self.alloc_object(func_object);
                 self.stack_top += 1;
             }
             Opcode::CallNoKw(n_args) => {
@@ -283,37 +313,44 @@ impl VM {
 struct LinearMemory {
     memory: Vec<ObjectPtr>,
     return_pc: Option<usize>,
+
+    invalid_obj: ObjectPtr,
 }
 
 impl LinearMemory {
-    pub fn new() -> Self {
+    pub fn new(invalid_obj: ObjectPtr) -> Self {
         LinearMemory {
             memory: Vec::new(),
             return_pc: None,
+            invalid_obj,
         }
     }
 
-    pub fn new_with_return(return_pc: usize) -> Self {
+    pub fn new_with_return(invalid_obj: ObjectPtr, return_pc: usize) -> Self {
         LinearMemory {
             memory: Vec::new(),
             return_pc: Some(return_pc),
+            invalid_obj,
         }
     }
 
     pub fn store(&mut self, address: usize, object: ObjectPtr) {
         if address >= self.memory.len() {
-            self.memory
-                .resize(address + 1, ObjectPtr::wrap(Object::make_invalid()));
+            self.memory.resize(address + 1, self.invalid_obj.clone());
         }
 
         self.memory[address] = object;
     }
 
-    pub fn load(&self, address: usize) -> ObjectPtr {
+    pub fn load(&mut self, address: usize) -> ObjectPtr {
         if address >= self.memory.len() {
-            ObjectPtr::wrap(Object::make_invalid())
+            self.invalid_obj.clone()
         } else {
             self.memory[address].clone()
         }
+    }
+
+    pub fn collect_objptr(&mut self) -> Vec<ObjectPtr> {
+        self.memory.clone()
     }
 }

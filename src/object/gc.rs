@@ -107,7 +107,7 @@ impl GCSystem {
     //     Object::new(value_ptr)
     // }
 
-    pub fn new_object(&mut self, obj: Object, roots: &mut Vec<ObjectPtr>) {
+    pub fn new_object(&mut self, obj: Object, roots: &mut Vec<ObjectPtr>) -> ObjectPtr {
         let gc_value = obj;
         if self.num_objects == self.max_objects {
             self.collect_garbage(roots);
@@ -123,11 +123,13 @@ impl GCSystem {
             self.tail = Some(tail);
         }
 
-        self._all_allocated.push(ptr);
+        self._all_allocated.push(ptr.clone());
+
+        ptr
     }
 
-    pub fn new_object_from_value(&mut self, value: Value, roots: &mut Vec<ObjectPtr>) {
-        self.new_object(Object::new(value), roots);
+    pub fn new_object_from_value(&mut self, value: Value, roots: &mut Vec<ObjectPtr>) -> ObjectPtr {
+        self.new_object(Object::new(value), roots)
     }
 
     pub fn collect_garbage(&mut self, roots: &mut Vec<ObjectPtr>) {
