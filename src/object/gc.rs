@@ -69,6 +69,16 @@ impl ObjectPtr {
         drop(object);
         self.object = std::ptr::null_mut();
     }
+
+    pub fn null() -> Self {
+        Self {
+            object: std::ptr::null_mut(),
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.object.is_null()
+    }
 }
 
 impl Clone for ObjectPtr {

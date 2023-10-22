@@ -9,7 +9,7 @@ pub enum Value {
     Boolean(bool),
     Function(Box<FunctionInfo>),
     String(String),
-    // Instance(Instance),
+    Instance(Instance),
     // Dict()
 }
 
