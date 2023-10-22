@@ -68,12 +68,17 @@ pub fn literal_expression(input: Span) -> Result<Expression> {
     let name = comb::map(ident, |s| {
         Expression::Name(NameExpression::new(s.to_string()))
     });
+    let string_lit = comb::map(
+        seq::tuple((tag("\""), nom::bytes::complete::is_not("\""), tag("\""))),
+        |(_, s, _)| Expression::Literal(LiteralExpression::String((&s as &str).to_string())),
+    );
     context(
         "literal_expression",
         branch::alt((
             list_literal,
             context("int literal", int_lit),
             context("name literal", name),
+            context("string literal", string_lit),
         )),
     )(input)
 }

@@ -3,6 +3,7 @@ pub enum Opcode {
     Nop,
     ConstNull,
     ConstInt(i64),
+    ConstString(String),
     Add2,
     Sub2,
     Mul2,

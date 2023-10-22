@@ -154,6 +154,14 @@ impl<'a> UnitCompiler<'a> {
                     };
                     self.add_op_md(op, md);
                 }
+                LiteralExpression::String(s) => {
+                    let op = Opcode::ConstString(s.to_string());
+                    let md = Metadata {
+                        this_label: top_labels.to_owned(),
+                        jmp_to_label: None,
+                    };
+                    self.add_op_md(op, md);
+                }
                 _ => unimplemented!(),
             },
             Expression::Name(name) => {

@@ -253,6 +253,7 @@ impl BinaryExpression {
 pub enum LiteralExpression {
     Integer(i64),
     Float(f64),
+    String(String),
     List,
 }
 

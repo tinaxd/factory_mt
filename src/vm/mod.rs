@@ -46,7 +46,7 @@ impl VM {
         let all_alloc = self.gc.get_all_allocated();
         let num_objects = self.gc.num_objects();
         println!(
-            "current objects: {:?}, total allocated: {:?}",
+            "gc: current objects: {:?}, total allocated: {:?}",
             num_objects,
             all_alloc.len()
         );
@@ -167,6 +167,11 @@ impl VM {
             }
             Opcode::ConstNull => {
                 self.stack[self.stack_top] = self.alloc_object(Object::const_null());
+                self.stack_top += 1;
+            }
+            Opcode::ConstString(const_value) => {
+                self.stack[self.stack_top] =
+                    self.alloc_object(Object::const_string(const_value.clone()));
                 self.stack_top += 1;
             }
             Opcode::Add2 => {

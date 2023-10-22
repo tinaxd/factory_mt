@@ -1,12 +1,15 @@
+use super::internal::hashmap::HashMap as MyHashMap;
 use super::{gc::Object, ObjectPtr};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Value {
     Invalid,
     Null,
     Integer(i64),
     Boolean(bool),
     Function(Box<FunctionInfo>),
+    String(String),
+    // Instance(Instance),
     // Dict()
 }
 
@@ -19,6 +22,10 @@ impl Value {
         Value::Boolean(value)
     }
 
+    pub fn const_string(value: String) -> Self {
+        Value::String(value)
+    }
+
     pub fn children(&self) -> Vec<ObjectPtr> {
         match self {
             Value::Invalid => vec![],
@@ -26,6 +33,7 @@ impl Value {
             Value::Integer(_) => vec![],
             Value::Boolean(_) => vec![],
             Value::Function(_) => vec![],
+            Value::String(_) => vec![],
         }
     }
 
@@ -36,6 +44,7 @@ impl Value {
             Value::Integer(_) => vec![],
             Value::Boolean(_) => vec![],
             Value::Function(_) => vec![],
+            Value::String(_) => vec![],
         }
     }
 }
@@ -58,4 +67,10 @@ impl FunctionInfo {
     pub fn n_params(&self) -> usize {
         self.n_params
     }
+}
+
+#[derive(Debug)]
+struct Instance {
+    class: ObjectPtr,
+    fields: MyHashMap,
 }

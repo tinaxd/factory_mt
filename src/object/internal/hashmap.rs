@@ -1,5 +1,6 @@
-use crate::object::Object;
+use crate::object::ObjectPtr;
 
-// pub struct HashMap {
-// map: Vec<GC<Object>>,
-// }
+#[derive(Debug)]
+pub struct HashMap {
+    map: Vec<ObjectPtr>,
+}

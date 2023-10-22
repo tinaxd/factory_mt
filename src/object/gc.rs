@@ -28,6 +28,10 @@ impl Object {
         Self::new_from_value(Value::const_bool(value))
     }
 
+    pub fn const_string(value: String) -> Self {
+        Self::new_from_value(Value::const_string(value))
+    }
+
     pub fn const_null() -> Self {
         Self::new_from_value(Value::Null)
     }
