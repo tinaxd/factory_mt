@@ -100,6 +100,10 @@ impl GCSystem {
         &self._all_allocated
     }
 
+    pub fn num_objects(&self) -> usize {
+        self.num_objects
+    }
+
     // pub fn clone_object(&mut self, object: &Object) -> Object {
     //     let value = unsafe { &*object.value };
     //     let value = value.clone();
@@ -136,8 +140,8 @@ impl GCSystem {
         for root in roots {
             self.mark_all(root.clone());
         }
-        self.sweep();
-        self.num_objects = 0;
+        let num_objects = self.sweep();
+        self.num_objects = num_objects;
     }
 
     pub fn mark_all(&mut self, root: ObjectPtr) {
@@ -161,13 +165,15 @@ impl GCSystem {
         }
     }
 
-    pub fn sweep(&mut self) {
+    pub fn sweep(&mut self) -> usize {
         // sweep marked objects
         let mut object = self.head.take();
         let mut last_marked: Option<ObjectPtr> = None;
         let mut head_candidate = None;
+        let mut allocated_objects = 0;
         while let Some(mut object_inner) = object {
             if object_inner.get().marked {
+                allocated_objects += 1;
                 object_inner.get_mut().marked = false;
                 if head_candidate.is_none() {
                     head_candidate = Some(object_inner.clone());
@@ -194,5 +200,7 @@ impl GCSystem {
         }
 
         self.head = head_candidate;
+
+        allocated_objects
     }
 }

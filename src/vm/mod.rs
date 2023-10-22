@@ -42,6 +42,16 @@ impl VM {
         vm
     }
 
+    pub fn gc_debug(&mut self) {
+        let all_alloc = self.gc.get_all_allocated();
+        let num_objects = self.gc.num_objects();
+        println!(
+            "current objects: {:?}, total allocated: {:?}",
+            num_objects,
+            all_alloc.len()
+        );
+    }
+
     pub fn gc_mark(&mut self) {
         let mut roots = self.collect_objptr();
         for sf in self.stack_frames.iter_mut() {

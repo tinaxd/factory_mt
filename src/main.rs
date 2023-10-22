@@ -42,5 +42,6 @@ fn main() {
         if let Some(v) = vm.stack_top() {
             println!("{:?}", v);
         }
+        vm.gc_debug();
     }
 }
