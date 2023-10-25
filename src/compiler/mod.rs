@@ -8,24 +8,20 @@ use crate::{
     opcode::Opcode,
 };
 
-use self::{global::GlobalTable, layout::LayoutTracker};
+use self::layout::LayoutTracker;
 
 #[derive(Debug)]
 pub struct Compiler {
-    globals: GlobalTable,
     codes: Vec<Vec<OpcodeWithMetadata>>,
 }
 
 impl Compiler {
     pub fn new() -> Self {
-        Self {
-            globals: GlobalTable::new(),
-            codes: Vec::new(),
-        }
+        Self { codes: Vec::new() }
     }
 
     pub fn compile_top(&mut self, top_stmt: &Statement) {
-        let mut unit_compiler = UnitCompiler::new(true, &mut self.globals);
+        let mut unit_compiler = UnitCompiler::new(true);
         unit_compiler.compile_stmt(top_stmt, &vec![]);
         self.codes.extend(unit_compiler.collect_codes());
     }
@@ -83,9 +79,8 @@ impl Compiler {
 }
 
 #[derive(Debug)]
-pub struct UnitCompiler<'a> {
+pub struct UnitCompiler {
     is_global: bool,
-    globals: &'a mut GlobalTable,
     code: Vec<OpcodeWithMetadata>,
     layout: LayoutTracker,
 
@@ -94,7 +89,7 @@ pub struct UnitCompiler<'a> {
     current_label_index: u32,
 }
 
-impl<'a> UnitCompiler<'a> {
+impl UnitCompiler {
     fn add_op(&mut self, op: Opcode) {
         self.code.push(OpcodeWithMetadata::new_op(op));
     }
@@ -103,10 +98,9 @@ impl<'a> UnitCompiler<'a> {
         self.code.push(OpcodeWithMetadata::new(op, md));
     }
 
-    pub fn new(is_global: bool, globals: &'a mut GlobalTable) -> UnitCompiler {
+    pub fn new(is_global: bool) -> UnitCompiler {
         Self {
             is_global,
-            globals,
             code: Vec::new(),
             layout: LayoutTracker::new(),
             ext_codes: Vec::new(),
@@ -171,19 +165,14 @@ impl<'a> UnitCompiler<'a> {
                     match var_index {
                         None => {
                             // fall back to global
-                            let var_index = self.globals.get_global(var_name);
-                            match var_index {
-                                None => panic!("variable not found: {}", var_name),
-                                Some(var_index) => {
-                                    let op = Opcode::LoadGlobal(var_index);
 
-                                    let md = Metadata {
-                                        this_label: top_labels.to_owned(),
-                                        jmp_to_label: None,
-                                    };
-                                    self.add_op_md(op, md);
-                                }
+                            let op = Opcode::LoadGlobal(var_name.to_owned());
+
+                            let md = Metadata {
+                                this_label: top_labels.to_owned(),
+                                jmp_to_label: None,
                             };
+                            self.add_op_md(op, md);
                         }
                         Some(var_index) => {
                             let op = Opcode::Load(var_index);
@@ -196,12 +185,7 @@ impl<'a> UnitCompiler<'a> {
                         }
                     };
                 } else {
-                    let var_index = self.globals.get_global(var_name);
-                    let var_index = match var_index {
-                        None => panic!("global variable not found: {}", var_name),
-                        Some(i) => i,
-                    };
-                    let op = Opcode::LoadGlobal(var_index);
+                    let op = Opcode::LoadGlobal(var_name.to_owned());
 
                     let md = Metadata {
                         this_label: top_labels.to_owned(),
@@ -250,8 +234,7 @@ impl<'a> UnitCompiler<'a> {
                     let op = Opcode::Store(assigned_index);
                     self.add_op(op);
                 } else {
-                    let assigned_index = self.globals.register_global(name);
-                    let op = Opcode::StoreGlobal(assigned_index);
+                    let op = Opcode::StoreGlobal(name.to_owned());
                     self.add_op(op);
                 }
             }
@@ -367,11 +350,15 @@ impl<'a> UnitCompiler<'a> {
                 let func_body = def.body();
 
                 // register function earlier to handle recursive calls
-                let func_index = if !self.is_global {
-                    self.current_layout_mut()
-                        .register_local(func_name.to_string())
+                let func_register_op = if !self.is_global {
+                    let func_index = self
+                        .current_layout_mut()
+                        .register_local(func_name.to_string());
+                    Opcode::Store(func_index)
                 } else {
-                    self.globals.register_global(func_name)
+                    // no need to register function
+                    // because in global space, name lookup is done at runtime
+                    Opcode::StoreGlobal(func_name.to_string())
                 };
 
                 let func_body_label = self.generate_func_label(func_name);
@@ -390,11 +377,7 @@ impl<'a> UnitCompiler<'a> {
                     },
                 );
 
-                if !self.is_global {
-                    self.add_op(Opcode::Store(func_index));
-                } else {
-                    self.add_op(Opcode::StoreGlobal(func_index));
-                }
+                self.add_op(func_register_op);
                 println!(
                     "registered function: {} (global: {})",
                     func_name, self.is_global
@@ -421,7 +404,7 @@ impl<'a> UnitCompiler<'a> {
         body: &Statement,
         top_labels: &Vec<String>,
     ) {
-        let mut unit = UnitCompiler::new(false, self.globals);
+        let mut unit = UnitCompiler::new(false);
 
         // register params in order
         for param in params.iter() {

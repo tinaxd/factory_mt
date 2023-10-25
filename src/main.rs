@@ -35,13 +35,23 @@ fn main() {
         writeln!(file, "{}: {:#?}", i, c).unwrap();
     }
 
+    // create VM
     let mut vm = VM::new(1024);
+    println!("VM started");
+
+    // register native functions
+    let natives = vec![factory::extension::basic::BasicFunctions::default()];
+    natives.iter().for_each(|f| {
+        factory::extension::register_native(&mut vm, f);
+    });
+
+    // start user code
     vm.set_code(code);
     loop {
         vm.step_code();
-        if let Some(v) = vm.stack_top() {
-            println!("{:?}", v);
-        }
-        vm.gc_debug();
+        // if let Some(v) = vm.stack_top() {
+        // println!("{:?}", v);
+        // }
+        // vm.gc_debug();
     }
 }

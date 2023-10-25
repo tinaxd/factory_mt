@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     object::{FunctionAddress, FunctionInfo, Object, Value},
     opcode::Opcode,
@@ -16,7 +18,7 @@ pub struct VM {
     stack_frames: Vec<LinearMemory>,
     stack_frame_top: usize,
 
-    globals: LinearMemory,
+    globals: NameMemory,
 
     gc: crate::object::GCSystem,
 }
@@ -35,7 +37,7 @@ impl VM {
             stack_frames: vec![LinearMemory::new(invalid_obj.clone())],
             stack_frame_top: 0,
 
-            globals: LinearMemory::new(invalid_obj),
+            globals: NameMemory::new(invalid_obj),
 
             gc,
         };
@@ -151,6 +153,12 @@ impl VM {
         self.stack_top += 1;
     }
 
+    pub fn register_native(&mut self, name: &str, f: &FunctionInfo) {
+        let fun_object =
+            self.alloc_object(Object::new_from_value(Value::Function(Box::new(f.clone()))));
+        self.globals.store(name, fun_object);
+    }
+
     pub fn step_code(&mut self) {
         // early return if pc is larger than code size
         if self.pc >= self.opcode.len() {
@@ -159,7 +167,7 @@ impl VM {
 
         // fetch opcode
         let op = &self.opcode[self.pc].clone();
-        println!("pc: {:?}, executing {:?}", self.pc, op);
+        // println!("pc: {:?}, executing {:?}", self.pc, op);
         match op {
             Opcode::ConstInt(const_value) => {
                 self.stack[self.stack_top] = self.alloc_object(Object::const_int(*const_value));
@@ -235,10 +243,10 @@ impl VM {
                 let value = self.stack[self.stack_top - 1].clone();
                 self.stack_top -= 1;
 
-                self.globals.store(*address, value);
+                self.globals.store(address, value);
             }
             Opcode::LoadGlobal(address) => {
-                let value = self.globals.load(*address);
+                let value = self.globals.load(address);
                 self.stack[self.stack_top] = value;
                 self.stack_top += 1;
             }
@@ -287,7 +295,7 @@ impl VM {
                 let fun_value = fun_object.get().value();
                 let fun_info = match fun_value {
                     Value::Function(fun_info) => fun_info,
-                    _ => panic!("invalid function"),
+                    e => panic!("invalid function {:?}", e),
                 };
 
                 if fun_info.n_params() != *n_args {
@@ -296,7 +304,7 @@ impl VM {
 
                 self.push_stackframe(self.pc + 1);
                 for i in (0..(*n_args)).rev() {
-                    println!("storing arg {} in stack frame", i);
+                    // println!("storing arg {} in stack frame", i);
                     let arg = self.stack[self.stack_top - 1].clone();
                     self.stack_top -= 1;
                     self.current_stack_frame().store(i, arg);
@@ -306,12 +314,15 @@ impl VM {
                 match fun_info.address() {
                     FunctionAddress::Bytecode(pc) => {
                         self.pc = *pc;
+                        return; // avoid incrementing pc
                     }
                     FunctionAddress::Native(f) => {
-                        todo!("native function not implemented")
+                        let return_val = f(self);
+                        self.stack[self.stack_top] =
+                            self.alloc_object(Object::new_from_value(return_val));
+                        self.stack_top += 1;
                     }
                 }
-                return; // avoid incrementing pc
             }
             Opcode::Return => {
                 let return_to_pc = self.current_stack_frame().return_pc;
@@ -328,6 +339,10 @@ impl VM {
         }
 
         self.pc += 1;
+    }
+
+    pub fn get_function_argument_by_index(&mut self, index: usize) -> ObjectPtr {
+        self.current_stack_frame().load(index)
     }
 }
 
@@ -374,5 +389,34 @@ impl LinearMemory {
 
     pub fn collect_objptr(&mut self) -> Vec<ObjectPtr> {
         self.memory.clone()
+    }
+}
+
+#[derive(Debug)]
+struct NameMemory {
+    memory: HashMap<String, ObjectPtr>,
+    invalid_obj: ObjectPtr,
+}
+
+impl NameMemory {
+    pub fn new(invalid_obj: ObjectPtr) -> Self {
+        NameMemory {
+            memory: HashMap::new(),
+            invalid_obj,
+        }
+    }
+
+    pub fn store(&mut self, address: &str, object: ObjectPtr) {
+        self.memory.insert(address.to_string(), object);
+    }
+
+    pub fn load(&mut self, address: &str) -> ObjectPtr {
+        self.memory
+            .get(address)
+            .map_or_else(|| self.invalid_obj.clone(), |w| w.clone())
+    }
+
+    pub fn collect_objptr(&mut self) -> Vec<ObjectPtr> {
+        self.memory.values().cloned().collect()
     }
 }

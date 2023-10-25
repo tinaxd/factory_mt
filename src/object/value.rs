@@ -73,7 +73,7 @@ impl FunctionInfo {
     }
 }
 
-pub type NativeFunction = fn(&mut VM);
+pub type NativeFunction = fn(&mut VM) -> Value;
 
 #[derive(Debug, Clone)]
 pub enum FunctionAddress {

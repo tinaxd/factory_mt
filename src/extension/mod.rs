@@ -1,4 +1,6 @@
 use derive_builder::Builder;
+
+use crate::vm::VM;
 pub mod basic;
 
 #[derive(Debug, Clone, Builder)]
@@ -24,16 +26,15 @@ impl NativeFunctionInfo {
 
 pub trait RegisterableExtension {
     fn register(&self) -> Vec<NativeFunctionInfo>;
+}
 
-    fn collect_functions(&self) -> Vec<crate::object::FunctionInfo> {
-        self.register()
-            .into_iter()
-            .map(|f| {
-                crate::object::FunctionInfo::new(
-                    crate::object::FunctionAddress::Native(f.address().clone()),
-                    f.n_params(),
-                )
-            })
-            .collect()
+pub fn register_native(vm: &mut VM, extension: impl RegisterableExtension) {
+    let functions = extension.register();
+    for f in functions {
+        let f_info = crate::object::FunctionInfo::new(
+            crate::object::FunctionAddress::Native(f.address().clone()),
+            f.n_params(),
+        );
+        vm.register_native(f.name(), &f_info);
     }
 }

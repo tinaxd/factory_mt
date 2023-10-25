@@ -20,8 +20,8 @@ pub enum Opcode {
     Discard,
     Store(usize),
     Load(usize),
-    StoreGlobal(usize), // address in global table
-    LoadGlobal(usize),  // address in global table
+    StoreGlobal(String),
+    LoadGlobal(String),
     JmpIfTrue(usize),
     JmpAlways(usize),
     JmpIfFalse(usize),
