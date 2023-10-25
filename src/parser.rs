@@ -153,12 +153,17 @@ pub fn product_operator(input: Span) -> Result<BinaryOperator> {
 pub fn product_expression(input: Span) -> Result<Expression> {
     let p = seq::tuple((
         call_expression,
-        many0(seq::tuple((product_operator, product_expression))),
+        many0(seq::tuple((
+            cp::space0,
+            product_operator,
+            cp::space0,
+            product_expression,
+        ))),
     ));
     context(
         "product_expression",
         comb::map(p, |(first, rest)| {
-            rest.into_iter().fold(first, |acc, (op, expr)| {
+            rest.into_iter().fold(first, |acc, (_, op, _, expr)| {
                 Expression::Binary(BinaryExpression::new(op, acc, expr))
             })
         }),
@@ -178,12 +183,17 @@ pub fn add_operator(input: Span) -> Result<BinaryOperator> {
 pub fn add_expression(input: Span) -> Result<Expression> {
     let p = seq::tuple((
         product_expression,
-        many0(seq::tuple((add_operator, add_expression))),
+        many0(seq::tuple((
+            cp::space0,
+            add_operator,
+            cp::space0,
+            add_expression,
+        ))),
     ));
     context(
         "add_expression",
         comb::map(p, |(first, rest)| {
-            rest.into_iter().fold(first, |acc, (op, expr)| {
+            rest.into_iter().fold(first, |acc, (_, op, _, expr)| {
                 Expression::Binary(BinaryExpression::new(op, acc, expr))
             })
         }),
@@ -207,12 +217,17 @@ pub fn cmp_operator(input: Span) -> Result<BinaryOperator> {
 pub fn cmp_expression(input: Span) -> Result<Expression> {
     let p = seq::tuple((
         add_expression,
-        many0(seq::tuple((cmp_operator, cmp_expression))),
+        many0(seq::tuple((
+            cp::space0,
+            cmp_operator,
+            cp::space0,
+            cmp_expression,
+        ))),
     ));
     context(
         "cmp_expression",
         comb::map(p, |(first, rest)| {
-            rest.into_iter().fold(first, |acc, (op, expr)| {
+            rest.into_iter().fold(first, |acc, (_, op, _, expr)| {
                 Expression::Binary(BinaryExpression::new(op, acc, expr))
             })
         }),

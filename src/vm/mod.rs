@@ -75,8 +75,9 @@ impl VM {
     pub fn alloc_object(&mut self, object: Object) -> ObjectPtr {
         let mut roots = self.collect_objptr();
         for sf in self.stack_frames.iter_mut() {
-            roots.extend(sf.collect_objptr().iter().cloned().collect::<Vec<_>>());
+            roots.extend(sf.collect_objptr());
         }
+        roots.extend(self.globals.collect_objptr());
         self.gc.new_object(object, &mut roots)
     }
 
@@ -121,6 +122,25 @@ impl VM {
                     Opcode::Mod2 => left % right,
                     _ => panic!("invalid operands for arithmetic"),
                 }))
+            }
+            _ => panic!("invalid operands for arithmetic"),
+        };
+
+        self.stack[self.stack_top] = result;
+        self.stack_top += 1;
+    }
+
+    fn opcode_add(&mut self) {
+        let right = self.stack[self.stack_top - 1].clone();
+        let left = self.stack[self.stack_top - 2].clone();
+        self.stack_top -= 2;
+
+        let result = match (left.get().value(), right.get().value()) {
+            (Value::Integer(left), Value::Integer(right)) => {
+                self.alloc_object(Object::const_int(left + right))
+            }
+            (Value::String(left), Value::String(right)) => {
+                self.alloc_object(Object::const_string(format!("{}{}", left, right)))
             }
             _ => panic!("invalid operands for arithmetic"),
         };
@@ -183,7 +203,7 @@ impl VM {
                 self.stack_top += 1;
             }
             Opcode::Add2 => {
-                self.opcode_arithmetic(op.clone());
+                self.opcode_add();
             }
             Opcode::Sub2 => {
                 self.opcode_arithmetic(op.clone());
