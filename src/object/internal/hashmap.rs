@@ -1,6 +1,6 @@
 use crate::object::{ObjectPtr, Value};
 
-const DEFAULT_HASHMAP_SIZE: usize = 16;
+pub const DEFAULT_HASHMAP_SIZE: usize = 16;
 
 #[derive(Debug, Clone)]
 struct Entry {
@@ -167,5 +167,16 @@ impl HashMap {
 
     pub fn exists(&self, key: ObjectPtr) -> bool {
         self.find_index(key).is_some()
+    }
+
+    pub fn collect_all_objectptrs(&self) -> Vec<ObjectPtr> {
+        let mut result = vec![];
+        for entry in &self.data {
+            if entry.is_occupied() {
+                result.push(entry.key().clone());
+                result.push(entry.value().clone());
+            }
+        }
+        result
     }
 }

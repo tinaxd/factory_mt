@@ -1,4 +1,5 @@
-use super::internal::hashmap::HashMap as MyHashMap;
+use super::internal::hashmap::{HashMap as MyHashMap, DEFAULT_HASHMAP_SIZE};
+use super::GCSystem;
 use super::{gc::Object, ObjectPtr};
 
 #[derive(Debug)]
@@ -34,6 +35,7 @@ impl Value {
             Value::Boolean(_) => vec![],
             Value::Function(_) => vec![],
             Value::String(_) => vec![],
+            Value::Instance(i)=>
         }
     }
 
@@ -71,6 +73,35 @@ impl FunctionInfo {
 
 #[derive(Debug)]
 struct Instance {
-    class: ObjectPtr,
+    class: Option<ObjectPtr>,
     fields: MyHashMap,
+}
+
+impl Instance {
+    pub fn new(class: Option<ObjectPtr>) -> Self {
+        Self {
+            class,
+            fields: MyHashMap::new(DEFAULT_HASHMAP_SIZE),
+        }
+    }
+
+    pub fn class(&self) -> Option<ObjectPtr> {
+        self.class.clone()
+    }
+
+    pub fn fields(&self) -> &MyHashMap {
+        &self.fields
+    }
+
+    pub fn fields_mut(&mut self) -> &mut MyHashMap {
+        &mut self.fields
+    }
+
+    pub fn get_field(&self, key: ObjectPtr) -> Option<ObjectPtr> {
+        self.fields.get(key).map(|v| v.clone())
+    }
+
+    pub fn set_field(&mut self, key: ObjectPtr, value: ObjectPtr) {
+        self.fields.put(key, value);
+    }
 }
