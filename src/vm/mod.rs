@@ -87,6 +87,13 @@ impl VM {
             .map(|w| w.get())
     }
 
+    pub fn dump_stack(&self) {
+        println!("stack:");
+        for i in 0..self.stack_top {
+            println!("\t{}: {:?}", i, self.stack[i].get().value());
+        }
+    }
+
     fn push_stackframe(&mut self, return_pc: usize) {
         self.stack_frame_top += 1;
         let invalid_obj = self.alloc_object(Object::make_invalid());
@@ -341,6 +348,15 @@ impl VM {
                         self.stack[self.stack_top] =
                             self.alloc_object(Object::new_from_value(return_val));
                         self.stack_top += 1;
+                        let return_to_pc = self.current_stack_frame().return_pc;
+                        self.pop_stackframe();
+                        match return_to_pc {
+                            Some(return_to_pc) => {
+                                self.pc = return_to_pc;
+                                return; // avoid incrementing pc
+                            }
+                            None => panic!("return without call"),
+                        }
                     }
                 }
             }

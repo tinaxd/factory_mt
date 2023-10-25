@@ -49,8 +49,9 @@ fn main() {
     vm.set_code(code);
     loop {
         vm.step_code();
+        // vm.dump_stack();
         // if let Some(v) = vm.stack_top() {
-        // println!("{:?}", v);
+        //     println!("{:?}", v);
         // }
         // vm.gc_debug();
     }

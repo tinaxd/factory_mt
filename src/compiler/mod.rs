@@ -363,16 +363,18 @@ impl UnitCompiler {
 
                 let func_body_label = self.generate_func_label(func_name);
 
+                // these codes are generated after the body of the currently compiling function
+                // so these are not the first instructions in the function
                 self.compile_fundef_body(
                     func_params,
                     func_body,
-                    &vec![vec![func_body_label.clone()], top_labels.to_owned()].concat(),
+                    &vec![vec![func_body_label.clone()]].concat(),
                 );
 
                 self.add_op_md(
                     Opcode::CreateFunction(0, func_params.len()),
                     Metadata {
-                        this_label: vec![],
+                        this_label: top_labels.to_owned(), // this is the first instruction in the function.
                         jmp_to_label: Some(func_body_label.clone()),
                     },
                 );
@@ -412,6 +414,8 @@ impl UnitCompiler {
         }
 
         unit.compile_stmt(body, top_labels);
+        // these returns are redundant if the function already contains a return statement
+        // but it's okay because the VM will never reach these returns in that case
         unit.add_op(Opcode::ConstNull);
         unit.add_op(Opcode::Return);
 
