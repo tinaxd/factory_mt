@@ -1,5 +1,5 @@
 use crate::{
-    object::{FunctionInfo, Object, Value},
+    object::{FunctionAddress, FunctionInfo, Object, Value},
     opcode::Opcode,
 };
 
@@ -276,7 +276,7 @@ impl VM {
             }
             Opcode::Nop => {}
             Opcode::CreateFunction(address, n_params) => {
-                let func_info = FunctionInfo::new(*address, *n_params);
+                let func_info = FunctionInfo::new(FunctionAddress::Bytecode(*address), *n_params);
                 let func_value = Value::Function(Box::new(func_info));
                 let func_object = Object::new_from_value(func_value);
                 self.stack[self.stack_top] = self.alloc_object(func_object);
@@ -303,7 +303,14 @@ impl VM {
                 }
                 self.stack_top -= 1; // consume function object
 
-                self.pc = fun_info.address();
+                match fun_info.address() {
+                    FunctionAddress::Bytecode(pc) => {
+                        self.pc = *pc;
+                    }
+                    FunctionAddress::Native(f) => {
+                        todo!("native function not implemented")
+                    }
+                }
                 return; // avoid incrementing pc
             }
             Opcode::Return => {

@@ -1,5 +1,7 @@
-use super::internal::hashmap::{HashMap as MyHashMap, DEFAULT_HASHMAP_SIZE};
-use super::{gc::Object, ObjectPtr};
+use crate::vm::VM;
+
+use super::internal::hashmap::HashMap as MyHashMap;
+use super::ObjectPtr;
 
 #[derive(Debug)]
 pub enum Value {
@@ -53,22 +55,30 @@ impl Value {
 
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
-    address: usize,
+    address: FunctionAddress,
     n_params: usize,
 }
 
 impl FunctionInfo {
-    pub fn new(address: usize, n_params: usize) -> Self {
+    pub fn new(address: FunctionAddress, n_params: usize) -> Self {
         Self { address, n_params }
     }
 
-    pub fn address(&self) -> usize {
-        self.address
+    pub fn address(&self) -> &FunctionAddress {
+        &self.address
     }
 
     pub fn n_params(&self) -> usize {
         self.n_params
     }
+}
+
+pub type NativeFunction = fn(&mut VM);
+
+#[derive(Debug, Clone)]
+pub enum FunctionAddress {
+    Native(NativeFunction),
+    Bytecode(usize),
 }
 
 #[derive(Debug)]
@@ -81,7 +91,7 @@ impl Instance {
     pub fn new(class: Option<ObjectPtr>) -> Self {
         Self {
             class,
-            fields: MyHashMap::new(DEFAULT_HASHMAP_SIZE),
+            fields: MyHashMap::new_default(),
         }
     }
 

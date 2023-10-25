@@ -18,6 +18,7 @@ impl Default for Entry {
         }
     }
 }
+
 impl Entry {
     pub fn new(key: ObjectPtr, value: ObjectPtr) -> Self {
         Self {

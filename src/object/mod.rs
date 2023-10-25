@@ -6,7 +6,9 @@ mod value;
 pub use gc::GCSystem;
 pub use gc::Object;
 pub use gc::ObjectPtr;
+pub use value::FunctionAddress;
 pub use value::FunctionInfo;
+pub use value::NativeFunction;
 pub use value::Value;
 
 #[derive(Debug, Clone)]

@@ -49,5 +49,6 @@
         "optional": "cpp",
         "fstream": "cpp",
         "sstream": "cpp"
-    }
+    },
+    "rust-analyzer.showUnlinkedFileNotification": false
 }
