@@ -1,6 +1,5 @@
 use factory::compiler::Compiler;
 use factory::parser::program as parse_program;
-use factory::vm::VM;
 use nom::Finish;
 use nom_locate::LocatedSpan;
 use std::io::{Read, Write};
@@ -27,32 +26,7 @@ fn main() {
 
     let mut compiler = Compiler::new();
     compiler.compile_top(&program[0]);
-    let code = compiler.link();
 
-    // write code to code.txt
-    let mut file = std::fs::File::create("code.txt").unwrap();
-    for (i, c) in code.iter().enumerate() {
-        writeln!(file, "{}: {:#?}", i, c).unwrap();
-    }
-
-    // create VM
-    let mut vm = VM::new(1024);
-    println!("VM started");
-
-    // register native functions
-    let natives = vec![factory::extension::basic::BasicFunctions::default()];
-    natives.iter().for_each(|f| {
-        factory::extension::register_native(&mut vm, f);
-    });
-
-    // start user code
-    vm.set_code(code);
-    loop {
-        vm.step_code();
-        // vm.dump_stack();
-        // if let Some(v) = vm.stack_top() {
-        //     println!("{:?}", v);
-        // }
-        // vm.gc_debug();
-    }
+    let mut output = std::io::stdout();
+    output.write_all(compiler.get_output().as_bytes()).unwrap();
 }

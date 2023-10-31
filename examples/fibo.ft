@@ -1,0 +1,21 @@
+do
+
+def fib(n) do
+    if n<2 do
+        return n
+    end else do
+        n1=fib(n-1)
+        n2=fib(n-2)
+        return n1+n2
+    end
+end
+
+def run() do
+    n=15
+    return fib(n)
+end
+
+result = main()
+println(result)
+
+end
