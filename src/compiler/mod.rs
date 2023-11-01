@@ -1,6 +1,16 @@
 mod c;
 mod global;
 mod layout;
+mod llvm;
+
+use std::collections::HashMap;
+
+use inkwell::{
+    builder::{Builder, BuilderError},
+    context::Context,
+    values::{BasicValueEnum, PointerValue},
+    IntPredicate,
+};
 
 use crate::ast::{Expression, LiteralExpression, Statement};
 
@@ -8,94 +18,127 @@ use self::c::UniqueNameGenerator;
 
 #[derive(Debug)]
 pub struct Compiler {
-    codes: String,
+    ctx: Context,
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Self {
-            codes: String::new(),
+            ctx: Context::create(),
         }
     }
 
     pub fn compile_top(&mut self, top_stmt: &Statement) {
-        let mut unit_compiler = UnitCompiler::new("top_level".to_string(), &vec![]);
-        unit_compiler.compile_fundef("top_level", &vec![], top_stmt);
-        self.codes = unit_compiler.collect_codes();
-    }
+        let module = self.ctx.create_module("main");
 
-    pub fn get_output(&self) -> String {
-        self.codes.clone()
+        let tag_type = self.ctx.i8_type();
+        let int_type = self.ctx.i32_type();
+        let factory_value = self
+            .ctx
+            .struct_type(&[tag_type.into(), int_type.into()], false);
+
+        module.add_global(factory_value, None, "factory_value");
+
+        let mut unit_compiler =
+            UnitCompiler::new("top_level".to_string(), &vec![], &self.ctx, module);
+        unit_compiler.compile_fundef("top_level", &vec![], top_stmt);
     }
 }
 
 #[derive(Debug)]
-pub struct UnitCompiler {
+pub struct UnitCompiler<'a> {
     current_function: String,
     params: Vec<String>,
 
-    code: Vec<String>,
-    gen: UniqueNameGenerator,
+    ctx: &'a Context,
+    module: inkwell::module::Module<'a>,
+
+    allocas: HashMap<String, PointerValue<'a>>,
+
+    rand: UniqueNameGenerator,
 }
 
 type LocalVarName = String;
 
-impl UnitCompiler {
-    pub fn new(function_name: String, params: &[String]) -> UnitCompiler {
+type BuilderResult<T> = Result<T, BuilderError>;
+
+impl<'a> UnitCompiler<'a> {
+    pub fn new(
+        function_name: String,
+        params: &[String],
+        ctx: &'a Context,
+        module: inkwell::module::Module<'a>,
+    ) -> Self {
         Self {
             current_function: function_name,
             params: params.to_vec(),
-            code: Vec::new(),
-            gen: UniqueNameGenerator::new(),
+            ctx,
+            module,
+            allocas: HashMap::new(),
+            rand: UniqueNameGenerator::new(),
         }
     }
 
-    fn add_line(&mut self, line: impl Into<String>) {
-        self.code.push(line.into());
-    }
-
-    pub fn compile_expr(&mut self, expr: &Expression) -> LocalVarName {
+    pub fn compile_expr(
+        &mut self,
+        expr: &Expression,
+        builder: Builder<'a>,
+    ) -> BuilderResult<BasicValueEnum<'a>> {
         match expr {
             Expression::Binary(bin) => {
                 let op = bin.op();
                 let left = bin.left();
                 let right = bin.right();
                 // generate operands
-                let lhs = self.compile_expr(left);
-                let rhs = self.compile_expr(right);
+                let lhs = self.compile_expr(left, builder)?;
+                let rhs = self.compile_expr(right, builder)?;
+
+                // limit to IntValue
+                let lhs_int = match lhs {
+                    BasicValueEnum::IntValue(i) => i,
+                    _ => todo!("not supported yet"),
+                };
+                let rhs_int = match rhs {
+                    BasicValueEnum::IntValue(i) => i,
+                    _ => todo!("not supported yet"),
+                };
+
+                let new_name = self.rand.next_var_name();
 
                 // generate operator
                 use crate::ast::BinaryOperator::*;
-                let (ty, op, convfun) = match op {
-                    Plus => ("int32_t", "+", "factory_alloc_integer"),
-                    Minus => ("int32_t", "-", "factory_alloc_integer"),
-                    Times => ("int32_t", "*", "factory_alloc_integer"),
-                    Divide => ("int32_t", "/", "factory_alloc_integer"),
-                    Modulo => ("int32_t", "%", "factory_alloc_integer"),
-                    Eq => ("bool", "==", "factory_alloc_boolean"),
-                    Neq => ("bool", "!=", "factory_alloc_boolean"),
-                    Lt => ("bool", "<", "factory_alloc_boolean"),
-                    Le => ("bool", "<=", "factory_alloc_boolean"),
-                    Gt => ("bool", ">", "factory_alloc_boolean"),
-                    Ge => ("bool", ">=", "factory_alloc_boolean"),
+                let new_value: BasicValueEnum<'a> = match op {
+                    Plus => builder.build_int_add(lhs_int, rhs_int, &new_name)?.into(),
+                    Minus => builder.build_int_sub(lhs_int, rhs_int, &new_name)?.into(),
+                    Times => builder.build_int_mul(lhs_int, rhs_int, &new_name)?.into(),
+                    Divide => todo!("not supported yet"),
+                    Modulo => todo!("not supported yet"),
+                    Eq => builder
+                        .build_int_compare(IntPredicate::EQ, lhs_int, rhs_int, &new_name)?
+                        .into(),
+                    Neq => builder
+                        .build_int_compare(IntPredicate::NE, lhs_int, rhs_int, &new_name)?
+                        .into(),
+                    Lt => builder
+                        .build_int_compare(IntPredicate::SLT, lhs_int, rhs_int, &new_name)?
+                        .into(),
+                    Le => builder
+                        .build_int_compare(IntPredicate::SLE, lhs_int, rhs_int, &new_name)?
+                        .into(),
+                    Gt => builder
+                        .build_int_compare(IntPredicate::SGT, lhs_int, rhs_int, &new_name)?
+                        .into(),
+                    Ge => builder
+                        .build_int_compare(IntPredicate::SGE, lhs_int, rhs_int, &new_name)?
+                        .into(),
                 };
-                let result_tmp_var = self.gen.next_var_name();
-                self.add_line(format!(
-                    "{} {} = {} {} {};",
-                    ty, result_tmp_var, lhs, op, rhs
-                ));
-                let result_var = self.gen.next_var_name();
-                self.add_line(format!(
-                    "struct FactoryObject* {} = {}({});",
-                    result_var, convfun, result_tmp_var
-                ));
-                result_var
+                Ok(new_value)
             }
             Expression::Literal(lit) => match lit {
                 LiteralExpression::Integer(i) => {
-                    let result_var = self.gen.next_var_name();
-                    self.add_line(format!("int32_t {} = {};", result_var, i));
-                    result_var
+                    let i = *i;
+                    let new_value = self.ctx.i32_type().const_int(i as u64, true);
+                    Ok(new_value.into())
                 }
                 LiteralExpression::String(s) => {
                     todo!()
@@ -104,7 +147,12 @@ impl UnitCompiler {
             },
             Expression::Name(name) => {
                 let var_name = name.get_name();
-                var_name.to_string()
+                let fv = self.module.get_global("factory_value").unwrap();
+                let ptr = self.allocas.get(var_name).expect("variable not found");
+                let new_name = self.rand.next_var_name();
+                let gep = builder.build_gep(pointee_ty, ptr, ordered_indexes, name)
+                let new_value = builder.build_load(fv, *ptr, &new_name)?;
+                Ok(new_value.into())
                 // TODO: fallback to dictionary search when var_name is not found in local scope
             }
             Expression::FunCall(func) => {
@@ -225,10 +273,4 @@ impl UnitCompiler {
     fn collect_codes(&self) -> String {
         self.code.join("\n")
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Metadata {
-    pub jmp_to_label: Option<String>,
-    pub this_label: Vec<String>,
 }
