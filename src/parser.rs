@@ -8,8 +8,9 @@ use nom_locate::LocatedSpan;
 
 use crate::ast::{
     AssignmentStatement, BinaryExpression, BinaryOperator, ConditionalStatement, Expression,
-    FunCallExpression, FuncDefStatement, IndexExpression, LiteralExpression, NameExpression,
-    ObjectAssignmentStatement, ReturnStatement, Statement, WhileStatement,
+    FunCallExpression, FuncDefStatement, FuncParam, IndexExpression, LiteralExpression,
+    NameExpression, ObjectAssignmentStatement, ReturnStatement, Statement, TypeExpression,
+    WhileStatement,
 };
 
 type Span<'a> = LocatedSpan<&'a str>;
@@ -44,6 +45,15 @@ pub fn ident(input: Span) -> Result<Span> {
         )));
     }
     Ok((new_input, o))
+}
+
+fn type_expression(input: Span) -> Result<TypeExpression> {
+    context(
+        "type_expression",
+        comb::map(ident, |s| {
+            TypeExpression::new_primitive(crate::ast::PrimitiveType::Integer)
+        }),
+    )(input)
 }
 
 fn list_literal(input: Span) -> Result<Expression> {
@@ -393,6 +403,8 @@ pub fn funcdef_stmt(input: Span) -> Result<Statement> {
     let tup = seq::tuple((
         tag("def"),
         white_no_newline1,
+        type_expression,
+        white_no_newline1,
         ident,
         white_no_newline0,
         tag("("),
@@ -405,19 +417,36 @@ pub fn funcdef_stmt(input: Span) -> Result<Statement> {
     ));
     context(
         "funcdef_stmt",
-        comb::map(tup, |(_, _, name, _, _, _, params, _, _, _, body)| {
-            Statement::FuncDef(FuncDefStatement::new(name.to_string(), params, body))
-        }),
+        comb::map(
+            tup,
+            |(_, _, return_type, _, name, _, _, _, params, _, _, _, body)| {
+                Statement::FuncDef(FuncDefStatement::new(
+                    name.to_string(),
+                    params,
+                    body,
+                    return_type,
+                ))
+            },
+        ),
     )(input)
 }
 
-pub fn param_list(input: Span) -> Result<Vec<String>> {
+pub fn param_list(input: Span) -> Result<Vec<FuncParam>> {
     let sep = seq::tuple((cp::multispace0, tag(","), cp::multispace0));
     context(
         "param_list",
-        comb::map(separated_list0(sep, ident), |params| {
-            params.into_iter().map(|s| s.to_string()).collect()
-        }),
+        comb::map(
+            separated_list0(
+                sep,
+                seq::tuple((ident, cp::space0, tag(":"), cp::space0, type_expression)),
+            ),
+            |params| {
+                params
+                    .into_iter()
+                    .map(|(name, _, _, _, ty)| FuncParam::new_with_type(name.to_string(), ty))
+                    .collect()
+            },
+        ),
     )(input)
 }
 

@@ -1,6 +1,6 @@
 do
 
-def fib(n) do
+def int fib(n: int) do
     if n<2 do
         return n
     end else do
@@ -10,12 +10,9 @@ def fib(n) do
     end
 end
 
-def run() do
+def int run() do
     n=15
     return fib(n)
 end
-
-result = main()
-println(result)
 
 end

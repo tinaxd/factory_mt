@@ -6,13 +6,17 @@ mod llvm;
 use std::collections::HashMap;
 
 use inkwell::{
+    basic_block::BasicBlock,
     builder::{Builder, BuilderError},
     context::Context,
+    module::Linkage,
     values::{BasicValueEnum, PointerValue},
     IntPredicate,
 };
 
-use crate::ast::{Expression, LiteralExpression, Statement};
+use crate::ast::{
+    Expression, FuncDefStatement, LiteralExpression, PrimitiveType, Statement, TypeExpression,
+};
 
 use self::c::UniqueNameGenerator;
 
@@ -23,37 +27,54 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn new() -> Self {
-        Self {
-            ctx: Context::create(),
-        }
+        let ctx = Context::create();
+        Self { ctx }
     }
 
-    pub fn compile_top(&mut self, top_stmt: &Statement) {
+    pub fn compile_top(&mut self, top_stmt: &Statement) -> inkwell::module::Module {
         let module = self.ctx.create_module("main");
 
-        let tag_type = self.ctx.i8_type();
-        let int_type = self.ctx.i32_type();
-        let factory_value = self
-            .ctx
-            .struct_type(&[tag_type.into(), int_type.into()], false);
+        // let tag_type = self.ctx.i8_type();
+        // let int_type = self.ctx.i32_type();
+        // let factory_value = self
+        //     .ctx
+        //     .struct_type(&[tag_type.into(), int_type.into()], false);
 
-        module.add_global(factory_value, None, "factory_value");
+        // module.add_global(factory_value, None, "factory_value");
 
-        let mut unit_compiler =
-            UnitCompiler::new("top_level".to_string(), &vec![], &self.ctx, module);
-        unit_compiler.compile_fundef("top_level", &vec![], top_stmt);
+        let builder = self.ctx.create_builder();
+
+        let mut unit_compiler = UnitCompiler::new("top_level".to_string(), &self.ctx, &module);
+        unit_compiler
+            .compile_stmt(
+                &Statement::FuncDef(FuncDefStatement::new(
+                    "top_level".to_string(),
+                    vec![],
+                    top_stmt.clone(),
+                    TypeExpression::Primitive(PrimitiveType::Integer),
+                )),
+                &builder,
+            )
+            .unwrap();
+
+        module
+    }
+
+    pub fn dump_module(module: &inkwell::module::Module) {
+        module.print_to_stderr();
     }
 }
 
+type AllocaMap<'a> = HashMap<String, PointerValue<'a>>;
+
 #[derive(Debug)]
-pub struct UnitCompiler<'a> {
+pub struct UnitCompiler<'a, 'b> {
     current_function: String,
-    params: Vec<String>,
 
     ctx: &'a Context,
-    module: inkwell::module::Module<'a>,
+    module: &'b inkwell::module::Module<'a>,
 
-    allocas: HashMap<String, PointerValue<'a>>,
+    allocas: AllocaMap<'a>,
 
     rand: UniqueNameGenerator,
 }
@@ -62,16 +83,14 @@ type LocalVarName = String;
 
 type BuilderResult<T> = Result<T, BuilderError>;
 
-impl<'a> UnitCompiler<'a> {
+impl<'a: 'b, 'b> UnitCompiler<'a, 'b> {
     pub fn new(
         function_name: String,
-        params: &[String],
         ctx: &'a Context,
-        module: inkwell::module::Module<'a>,
+        module: &'b inkwell::module::Module<'a>,
     ) -> Self {
         Self {
             current_function: function_name,
-            params: params.to_vec(),
             ctx,
             module,
             allocas: HashMap::new(),
@@ -79,10 +98,28 @@ impl<'a> UnitCompiler<'a> {
         }
     }
 
+    fn child_compiler(&self, function_name: String, params: AllocaMap<'a>) -> Self {
+        Self {
+            current_function: function_name,
+            ctx: self.ctx,
+            module: self.module,
+            allocas: params,
+            rand: UniqueNameGenerator::new(),
+        }
+    }
+
+    pub fn map_to_llvm_type(&self, ty: &TypeExpression) -> inkwell::types::AnyTypeEnum<'a> {
+        match ty {
+            TypeExpression::Primitive(prim) => match prim {
+                PrimitiveType::Integer => inkwell::types::AnyTypeEnum::IntType(self.ctx.i32_type()),
+            },
+        }
+    }
+
     pub fn compile_expr(
         &mut self,
         expr: &Expression,
-        builder: Builder<'a>,
+        builder: &Builder<'a>,
     ) -> BuilderResult<BasicValueEnum<'a>> {
         match expr {
             Expression::Binary(bin) => {
@@ -103,7 +140,7 @@ impl<'a> UnitCompiler<'a> {
                     _ => todo!("not supported yet"),
                 };
 
-                let new_name = self.rand.next_var_name();
+                let new_name = "bin_op_result";
 
                 // generate operator
                 use crate::ast::BinaryOperator::*;
@@ -147,130 +184,205 @@ impl<'a> UnitCompiler<'a> {
             },
             Expression::Name(name) => {
                 let var_name = name.get_name();
-                let fv = self.module.get_global("factory_value").unwrap();
+                let var_ty = self.ctx.i32_type();
                 let ptr = self.allocas.get(var_name).expect("variable not found");
-                let new_name = self.rand.next_var_name();
-                let gep = builder.build_gep(pointee_ty, ptr, ordered_indexes, name)
-                let new_value = builder.build_load(fv, *ptr, &new_name)?;
+                let new_name = "load_result";
+                let new_value = builder.build_load(var_ty, *ptr, new_name)?;
                 Ok(new_value.into())
                 // TODO: fallback to dictionary search when var_name is not found in local scope
             }
             Expression::FunCall(func) => {
-                let callee = func.callee();
+                let fun = func.callee();
                 let args = func.args();
 
-                let callee_name = match callee {
-                    Expression::Name(name) => name.get_name(),
-                    _ => todo!("closure is not supported yet"),
+                let fun_name = match fun {
+                    Expression::Name(n) => n.get_name(),
+                    _ => todo!("not supported yet"),
                 };
 
-                let arg_vars: Vec<String> = args.iter().map(|a| self.compile_expr(a)).collect();
+                let exprs: Vec<_> = args
+                    .iter()
+                    .map(|e| self.compile_expr(e, builder))
+                    .map(|e| e.unwrap().into())
+                    .collect();
 
-                // generate call
-                let result_var = self.gen.next_var_name();
-                self.add_line(format!(
-                    "struct FactoryObject* {} = {}({});",
-                    result_var,
-                    callee_name,
-                    arg_vars.join(", ")
-                ));
-                result_var
+                let func = self
+                    .module
+                    .get_function(fun_name)
+                    .expect("function not found");
+
+                let val = builder.build_call(func, &exprs, "call_result")?;
+                Ok(val.try_as_basic_value().left().unwrap())
             }
             _ => unimplemented!(),
         }
     }
 
-    pub fn compile_stmt(&mut self, stmt: &Statement) {
+    fn alloca_at_start(
+        &mut self,
+        name: &str,
+        current_func: BasicBlock,
+    ) -> BuilderResult<PointerValue<'a>> {
+        let builder = self.ctx.create_builder();
+        builder.position_at_end(current_func);
+        let var_ty = self.ctx.i32_type();
+        let ptr = builder.build_alloca(var_ty, name)?;
+        self.allocas.insert(name.to_string(), ptr);
+        Ok(ptr)
+    }
+
+    pub fn compile_stmt(&mut self, stmt: &Statement, builder: &Builder<'a>) -> BuilderResult<()> {
         println!("compiling stmt: {:?}", stmt);
         match stmt {
             Statement::Expression(expr) => {
-                let var = self.compile_expr(expr);
-                self.add_line(format!("{};", var))
+                let var = self.compile_expr(expr, builder)?;
+                // discard it
+                Ok(())
             }
             Statement::Assignment(assign) => {
                 let name = assign.name();
 
-                let value = self.compile_expr(assign.expression());
-                self.add_line(format!("{} = {};", name, value));
+                let alloca = match self.allocas.get(name) {
+                    None => {
+                        let new_alloca = self.alloca_at_start(
+                            name,
+                            builder
+                                .get_insert_block()
+                                .unwrap()
+                                .get_parent()
+                                .unwrap()
+                                .get_first_basic_block()
+                                .unwrap(),
+                        )?;
+                        new_alloca
+                    }
+                    Some(alloca) => *alloca,
+                };
+
+                let value = self.compile_expr(assign.expression(), builder)?;
+                builder.build_store(alloca, value.into_int_value());
+                Ok(())
             }
             Statement::Block(blk) => {
-                self.add_line("{".to_string());
                 for stmt in blk.iter() {
-                    self.compile_stmt(stmt);
+                    self.compile_stmt(stmt, builder)?;
                 }
-                self.add_line("}".to_string());
+                Ok(())
             }
             Statement::Conditional(cond) => {
+                // basic blocks
+                let current_func = builder.get_insert_block().unwrap().get_parent().unwrap();
+                let mut then_bb = self.ctx.append_basic_block(current_func, "then");
+                let mut else_bb = self.ctx.append_basic_block(current_func, "else");
+                let merge_bb = self.ctx.append_basic_block(current_func, "merge");
+
                 // evaluate condition
                 let cond_expr = cond.cond();
-                let cond_value = self.compile_expr(cond_expr);
+                let cond_value = self.compile_expr(cond_expr, builder)?;
 
-                self.add_line(format!("if ({})", cond_value));
-                // generate body
-                let body = cond.then();
-                self.compile_stmt(body);
+                builder.build_conditional_branch(cond_value.into_int_value(), then_bb, else_bb);
+
+                // generate true
+                builder.position_at_end(then_bb);
+                self.compile_stmt(cond.then(), builder)?;
+                builder.build_unconditional_branch(merge_bb);
+                then_bb = builder.get_insert_block().unwrap();
 
                 // generate else
-                if let Some(else_body) = cond.otherwise() {
-                    self.add_line("else".to_string());
-                    self.compile_stmt(else_body);
+                builder.position_at_end(else_bb);
+                if let Some(else_stmt) = cond.otherwise() {
+                    self.compile_stmt(else_stmt, builder)?;
                 }
+                builder.build_unconditional_branch(merge_bb);
+                else_bb = builder.get_insert_block().unwrap();
+
+                // generate merge
+                builder.position_at_end(merge_bb);
+                Ok(())
             }
             Statement::While(wh) => {
                 let cond = wh.cond();
                 let body = wh.body();
 
-                let cond_label = self.gen.next_label_name();
-                let body_end_label = self.gen.next_label_name();
+                let func = builder.get_insert_block().unwrap().get_parent().unwrap();
+                let cond_bb = self.ctx.append_basic_block(func, "cond");
+                let body_bb = self.ctx.append_basic_block(func, "body");
+                let merge_bb = self.ctx.append_basic_block(func, "merge");
 
-                // evaluate condition
-                self.add_line(format!("{}:", cond_label));
-                let cond_value = self.compile_expr(cond);
-                self.add_line(format!("if (!{})", cond_value));
-                self.add_line(format!("goto {};", body_end_label));
-                self.compile_stmt(body);
-                self.add_line(format!("goto {};", cond_label));
-                self.add_line(format!("{}: ;", body_end_label));
+                builder.build_unconditional_branch(cond_bb);
+
+                // build cond
+                builder.position_at_end(cond_bb);
+                let cond_value = self.compile_expr(cond, builder)?;
+                builder.build_conditional_branch(cond_value.into_int_value(), body_bb, merge_bb);
+
+                // build body
+                builder.position_at_end(body_bb);
+                self.compile_stmt(body, builder)?;
+                builder.build_unconditional_branch(cond_bb);
+
+                // build merge
+                builder.position_at_end(merge_bb);
+                Ok(())
             }
             Statement::FuncDef(def) => {
                 let func_name = def.name();
                 let func_params = def.params();
                 let func_body = def.body();
+                let func_return = def.return_type();
 
-                self.compile_fundef(func_name, func_params, func_body);
+                let return_type = self.map_to_llvm_type(func_return);
+                let fn_type = return_type.into_int_type().fn_type(
+                    &func_params
+                        .iter()
+                        .map(|p| self.map_to_llvm_type(p.ty().unwrap()).try_into().unwrap())
+                        .collect::<Vec<_>>()
+                        .as_ref(),
+                    false,
+                );
+
+                let func = self
+                    .module
+                    .add_function(func_name, fn_type, Some(Linkage::External));
+
+                let entry_bb = self.ctx.append_basic_block(func, "entry");
+                let body_bb = self.ctx.append_basic_block(func, "body");
+
+                builder.position_at_end(entry_bb);
+                builder.build_unconditional_branch(body_bb).unwrap();
+
+                builder.position_at_end(body_bb);
+
+                let allocas: AllocaMap = func_params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| {
+                        let param = func.get_nth_param(i as u32).unwrap();
+                        param.set_name(p.name());
+                        let alloca = self.alloca_at_start(p.name(), body_bb).unwrap();
+                        builder.build_store(alloca, param);
+                        (p.name().to_string(), alloca)
+                    })
+                    .collect();
+
+                let mut unit = self.child_compiler(func_name.to_string(), allocas);
+
+                unit.compile_stmt(func_body, builder)?;
+
+                Ok(())
             }
             Statement::Return(ret) => match ret.expression() {
                 None => {
-                    self.add_line("return factory_alloc_null();".to_string());
+                    builder.build_return(None);
+                    Ok(())
                 }
                 Some(e) => {
-                    let val = self.compile_expr(e);
-                    self.add_line(format!("return {};", val));
+                    let val = self.compile_expr(e, builder)?;
+                    builder.build_return(Some(&val));
+                    Ok(())
                 }
             },
             _ => unimplemented!(),
         }
-    }
-
-    fn gen_header(&mut self) {
-        self.add_line(format!("struct FactoryObject* {}(", self.current_function));
-        self.params.clone().iter().for_each(|p| {
-            self.add_line(format!("struct FactoryObject* {},", p));
-        });
-        self.add_line(")".to_string());
-    }
-
-    fn compile_fundef(&mut self, name: &str, params: &[String], body: &Statement) {
-        let mut unit = UnitCompiler::new(name.to_string(), params);
-
-        unit.gen_header();
-        unit.compile_stmt(body);
-
-        self.add_line(unit.collect_codes());
-    }
-
-    // first code will always be a main code
-    fn collect_codes(&self) -> String {
-        self.code.join("\n")
     }
 }

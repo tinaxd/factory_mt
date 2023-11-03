@@ -25,8 +25,7 @@ fn main() {
     }
 
     let mut compiler = Compiler::new();
-    compiler.compile_top(&program[0]);
+    let module = compiler.compile_top(&program[0]);
 
-    let mut output = std::io::stdout();
-    output.write_all(compiler.get_output().as_bytes()).unwrap();
+    Compiler::dump_module(&module);
 }

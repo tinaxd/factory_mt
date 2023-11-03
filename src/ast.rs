@@ -162,18 +162,65 @@ impl WhileStatement {
 }
 
 #[derive(Debug, Clone)]
+pub enum PrimitiveType {
+    Integer,
+}
+
+#[derive(Debug, Clone)]
+pub enum TypeExpression {
+    Primitive(PrimitiveType),
+}
+
+impl TypeExpression {
+    pub fn new_primitive(ty: PrimitiveType) -> Self {
+        Self::Primitive(ty)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FuncParam {
+    name: String,
+    ty: Option<TypeExpression>,
+}
+
+impl FuncParam {
+    pub fn new_with_type(name: String, ty: TypeExpression) -> Self {
+        Self { name, ty: Some(ty) }
+    }
+
+    pub fn new_without_type(name: String) -> Self {
+        Self { name, ty: None }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn ty(&self) -> Option<&TypeExpression> {
+        self.ty.as_ref()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct FuncDefStatement {
     name: String,
-    params: Vec<String>,
+    params: Vec<FuncParam>,
     body: Box<Statement>,
+    return_type: TypeExpression,
 }
 
 impl FuncDefStatement {
-    pub fn new(name: String, params: Vec<String>, body: Statement) -> Self {
+    pub fn new(
+        name: String,
+        params: Vec<FuncParam>,
+        body: Statement,
+        return_type: TypeExpression,
+    ) -> Self {
         Self {
             name,
             params,
             body: Box::new(body),
+            return_type,
         }
     }
 
@@ -181,12 +228,16 @@ impl FuncDefStatement {
         &self.name
     }
 
-    pub fn params(&self) -> &[String] {
+    pub fn params(&self) -> &[FuncParam] {
         &self.params
     }
 
     pub fn body(&self) -> &Statement {
         &self.body
+    }
+
+    pub fn return_type(&self) -> &TypeExpression {
+        &self.return_type
     }
 }
 
