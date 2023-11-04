@@ -15,7 +15,8 @@ use inkwell::{
 };
 
 use crate::ast::{
-    Expression, FuncDefStatement, LiteralExpression, PrimitiveType, Statement, TypeExpression,
+    Expression, FuncDefStatement, LiteralExpression, PrimitiveType, ReturnStatement, Statement,
+    TypeExpression,
 };
 
 use self::c::UniqueNameGenerator;
@@ -225,6 +226,9 @@ impl<'a: 'b, 'b> UnitCompiler<'a, 'b> {
     ) -> BuilderResult<PointerValue<'a>> {
         let builder = self.ctx.create_builder();
         builder.position_at_end(current_func);
+        if let Some(first_inst) = builder.get_insert_block().unwrap().get_first_instruction() {
+            builder.position_before(&first_inst);
+        }
         let var_ty = self.ctx.i32_type();
         let ptr = builder.build_alloca(var_ty, name)?;
         self.allocas.insert(name.to_string(), ptr);
@@ -368,6 +372,9 @@ impl<'a: 'b, 'b> UnitCompiler<'a, 'b> {
                 let mut unit = self.child_compiler(func_name.to_string(), allocas);
 
                 unit.compile_stmt(func_body, builder)?;
+                // add return in case it's not there
+                // it should be optimized away if it's already there
+                unit.compile_stmt(&Statement::Return(ReturnStatement::new_null()), builder)?;
 
                 Ok(())
             }
